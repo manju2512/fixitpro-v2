@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: ai-chat-service
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}   # must match core-service's signing key - this service only verifies, never issues
+  core-service:
+    base-url: ${CORE_SERVICE_URL:http://core-service:8080}
+  ai:
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    model: claude-sonnet-4-6

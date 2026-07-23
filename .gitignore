@@ -1,0 +1,19 @@
+# Env / secrets
+.env
+*.env.local
+
+# Java services (core-service, ai-chat-service)
+services/*/target/
+services/*/.mvn/
+services/*/*.iml
+services/*/.idea/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS / editor
+.DS_Store
+.vscode/
+*.log
