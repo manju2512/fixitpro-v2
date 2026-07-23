@@ -52,7 +52,7 @@ public class ReviewService {
         Review review = Review.builder()
                 .reservation(reservation)
                 .customer(reservation.getCustomer())
-                .rating(request.rating())
+                .rating(request.rating().byteValue())
                 .comment(request.comment())
                 .build();
         review = reviewRepository.save(review);
@@ -74,7 +74,7 @@ public class ReviewService {
         }
 
         int oldRating = review.getRating();
-        review.setRating(request.rating());
+        review.setRating(request.rating().byteValue());
         review.setComment(request.comment());
         review.setEdited(true);
 

@@ -35,7 +35,7 @@ public record ReviewResponse(
                 .customerName(r.getCustomer().getUsername())
                 .technicianId(technician != null ? technician.getTechnicianId() : null)
                 .technicianName(technician != null ? technician.getUser().getUsername() : null)
-                .rating(r.getRating())
+                .rating(r.getRating() != null ? r.getRating().intValue() : null)
                 .comment(r.getComment())
                 .edited(r.isEdited())
                 .createdAt(r.getCreatedAt())

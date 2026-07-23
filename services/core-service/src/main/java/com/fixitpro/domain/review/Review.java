@@ -30,7 +30,7 @@ public class Review {
     private User customer;
 
     @Column(nullable = false)
-    private Integer rating;
+    private Byte rating;
 
     @Column(columnDefinition = "TEXT")
     private String comment;
