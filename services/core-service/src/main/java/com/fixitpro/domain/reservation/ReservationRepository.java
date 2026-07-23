@@ -47,4 +47,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             ORDER BY r.reservationDate DESC, r.reservationId DESC
             """)
     List<Reservation> findAllWithDetails();
+
+    long countByStatus(ReservationStatus status);
 }
