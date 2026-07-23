@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/*
+  Design plan — FixitPro frontend
+  Subject: a home-repair booking platform. The core domain object is the
+  reservation, and its lifecycle (PENDING -> CONFIRMED -> IN_PROGRESS ->
+  COMPLETED, or CANCELLED) is the one thing every role in the app cares
+  about. That state machine becomes the visual signature: a color-coded
+  left stripe on every "ticket" (reservation/technician/review card),
+  so status is legible at a glance without reading text. This is
+  content-grounded, not decoration - it mirrors ReservationStatus.java.
+
+  Palette: warm workshop-paper background (not the AI-cliché cream/terracotta
+  combo - cooler, greyer undertone) with a hazard-amber primary accent
+  (trade/toolbelt association, distinct from a warm terracotta) and a
+  steel-blue secondary. Named tokens below, not raw hex scattered in code.
+
+  Type: Space Grotesk (display - geometric, slightly mechanical, reads as
+  "built" rather than "written") + IBM Plex Sans (body - designed for
+  technical/engineering contexts) + IBM Plex Mono (utility - job IDs,
+  timestamps, statuses - reinforces the "work order" feel).
+*/
+
+@theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-utility: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-paper: #ede9df;
+  --color-paper-raised: #f8f6f0;
+  --color-ink: #20241f;
+  --color-ink-soft: #565a4d;
+  --color-line: #d9d4c4;
+
+  --color-signal: #e1a400;
+  --color-signal-ink: #3a2c00;
+  --color-steel: #3d5a66;
+  --color-moss: #4b7a57;
+  --color-rust: #aa4030;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+/* Visible keyboard focus, kept consistent across every interactive element */
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
