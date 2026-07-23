@@ -73,7 +73,7 @@ git push -u origin feature/review-moderation
 
 Keeping real PR history (even solo) is worth doing — it's a concrete, checkable artifact of your process that a reviewer or interviewer can look at directly.
 
-## Status: Phase 2 — Booking Domain (complete, pending your review)
+## Status: Phase 2 — Booking Domain (complete, verified, merged to `main`)
 
 Built so far:
 - **Phase 1**: Foundation — Spring Boot skeleton, Flyway schema, JWT auth, security, error handling, Docker Compose
@@ -86,7 +86,12 @@ Built so far:
     - If a technician is explicitly chosen, the booking starts `PENDING` until confirmed (avoids silently double-booking someone)
     - Full status lifecycle enforced as an explicit state machine (`ReservationStatus.canTransitionTo`): `PENDING → CONFIRMED → IN_PROGRESS → COMPLETED`, with `CANCELLED` reachable from any non-terminal state
     - Ownership/role checks in the service layer: customers can only cancel their own bookings, technicians can advance (not cancel) their assigned jobs, admins can do anything including reassigning technicians
+  - `review` — customers review a `COMPLETED` reservation; technicians can reply once; admins moderate replies (`VISIBLE`/`HIDDEN`/`DELETED`)
+  - `business_schedule` — admin-managed schedule overrides (hours/closures)
+  - Self-service password change (`PATCH /api/users/me/password`), admin user listing/activation, admin technician management, and an admin dashboard-stats endpoint
 - **Architecture**: monorepo restructured into `services/core-service` + `services/ai-chat-service` (scaffolded, real logic in Phase 5)
+
+Verified end-to-end with `test_fixitpro_flow.ps1` — a repeatable, idempotent smoke test covering the full flow above, rerunnable without resetting the DB.
 
 ### Bootstrap admin account
 
@@ -97,9 +102,9 @@ username: admin
 password: ChangeMe123
 ```
 
-**Change this password immediately in any real deployment** — there's no "change password" endpoint yet (flagged for an upcoming phase); for now you'd update it directly in the DB or re-seed with a different hash.
+**Change this password immediately in any real deployment** — use `PATCH /api/users/me/password` once logged in as `admin`.
 
-Not yet built: review/reply moderation, real AI chat logic, React frontend, CI/CD, a proper admin "change password" flow.
+Not yet built: real AI chat logic, React frontend, CI/CD.
 
 ## Running locally
 
