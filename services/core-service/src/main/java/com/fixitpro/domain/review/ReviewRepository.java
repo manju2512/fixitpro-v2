@@ -40,4 +40,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             ORDER BY r.createdAt DESC
             """)
     List<Review> findAllWithDetails();
+
+    @Query("SELECT AVG(r.rating) FROM Review r")
+    Double findAverageRating();
 }

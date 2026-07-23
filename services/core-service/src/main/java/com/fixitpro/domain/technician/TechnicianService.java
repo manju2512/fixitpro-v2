@@ -9,6 +9,7 @@ import com.fixitpro.domain.servicetype.ServiceType;
 import com.fixitpro.domain.servicetype.ServiceTypeRepository;
 import com.fixitpro.domain.technician.dto.AdminCreateTechnicianRequest;
 import com.fixitpro.domain.technician.dto.TechnicianResponse;
+import com.fixitpro.domain.technician.dto.UpdateTechnicianRequest;
 import com.fixitpro.domain.user.User;
 import com.fixitpro.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -73,6 +74,34 @@ public class TechnicianService {
         return technicianRepository.findByServiceType_ServiceTypeIdAndAvailableTrue(serviceTypeId).stream()
                 .map(TechnicianResponse::from)
                 .toList();
+    }
+
+    /** Admin view: every technician regardless of availability - the public listing filters to available-only. */
+    @Transactional(readOnly = true)
+    public List<TechnicianResponse> listAllForAdmin() {
+        return technicianRepository.findAllWithDetails().stream()
+                .map(TechnicianResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TechnicianResponse getByIdPublic(Long id) {
+        return TechnicianResponse.from(getEntityOrThrow(id));
+    }
+
+    @Transactional
+    public TechnicianResponse update(Long id, UpdateTechnicianRequest request) {
+        TechnicianProfile profile = technicianRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Technician not found: " + id));
+
+        ServiceType serviceType = serviceTypeRepository.findById(request.serviceTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Service type not found: " + request.serviceTypeId()));
+
+        profile.setServiceType(serviceType);
+        profile.setBio(request.bio());
+        profile.setYearsExperience(request.yearsExperience() != null ? request.yearsExperience() : profile.getYearsExperience());
+
+        return TechnicianResponse.from(technicianRepository.findByIdWithDetails(id).orElseThrow());
     }
 
     @Transactional

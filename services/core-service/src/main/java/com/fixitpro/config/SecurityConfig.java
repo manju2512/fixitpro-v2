@@ -62,7 +62,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/service-types").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/technicians").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/technicians", "/api/technicians/*").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/business-schedule/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/reviews/**").permitAll()
                         .requestMatchers("/docs/**", "/api-docs/**", "/swagger-ui/**").permitAll()

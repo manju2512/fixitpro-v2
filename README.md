@@ -140,6 +140,23 @@ Requires a local MySQL and Redis instance matching the values in `application-de
 | PATCH | `/api/reservations/{id}/status` | Owner/assigned technician/ADMIN | Move through the status lifecycle |
 | PATCH | `/api/reservations/{id}/assign` | ADMIN | Assign/reassign a technician |
 | GET | `/api/reservations/admin/all` | ADMIN | View every reservation |
+| POST | `/api/reviews` | CUSTOMER | Review a COMPLETED reservation |
+| PUT | `/api/reviews/{id}` | CUSTOMER (owner) | Edit own review |
+| GET | `/api/reviews/{id}` | Public | View one review |
+| GET | `/api/reviews/technician/{id}` | Public | Reviews for a technician's profile |
+| GET | `/api/reviews/admin/all` | ADMIN | View every review |
+| POST | `/api/reviews/{id}/reply` | TECHNICIAN (assigned) | Reply once to a review |
+| PATCH | `/api/admin/reviews/replies/{id}/moderate` | ADMIN | Set reply to VISIBLE/HIDDEN/DELETED |
+| GET | `/api/business-schedule` | Public | List all schedule overrides |
+| GET | `/api/business-schedule/{date}` | Public | Check hours/closure for one date |
+| POST/PUT/DELETE | `/api/admin/business-schedule[/{id}]` | ADMIN | Manage schedule overrides |
+| PATCH | `/api/users/me/password` | Any authenticated user | Change own password |
+| GET | `/api/admin/users?role=CUSTOMER` | ADMIN | List users, optional role filter |
+| PATCH | `/api/admin/users/{id}/status?active=false` | ADMIN | Activate/deactivate a user (can't deactivate self) |
+| GET | `/api/technicians/{id}` | Public | Single technician detail |
+| GET | `/api/admin/technicians` | ADMIN | List every technician (not just available ones) |
+| PUT | `/api/admin/technicians/{id}` | ADMIN | Update a technician's profile |
+| GET | `/api/admin/dashboard/stats` | ADMIN | Aggregate counts: users, reservations by status, reviews, avg rating |
 
 ### Suggested test flow
 

@@ -2,6 +2,7 @@ package com.fixitpro.domain.technician;
 
 import com.fixitpro.domain.technician.dto.AdminCreateTechnicianRequest;
 import com.fixitpro.domain.technician.dto.TechnicianResponse;
+import com.fixitpro.domain.technician.dto.UpdateTechnicianRequest;
 import com.fixitpro.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -27,10 +28,30 @@ public class TechnicianController {
         return ResponseEntity.ok(technicianService.listAvailableForService(serviceTypeId));
     }
 
+    /** Public: single technician detail, e.g. for a profile page. */
+    @GetMapping("/api/technicians/{id}")
+    public ResponseEntity<TechnicianResponse> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(technicianService.getByIdPublic(id));
+    }
+
     @PostMapping("/api/admin/technicians")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TechnicianResponse> create(@Valid @RequestBody AdminCreateTechnicianRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(technicianService.create(request));
+    }
+
+    /** Admin: every technician regardless of availability - the public /api/technicians listing filters to available-only. */
+    @GetMapping("/api/admin/technicians")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<TechnicianResponse>> listAllForAdmin() {
+        return ResponseEntity.ok(technicianService.listAllForAdmin());
+    }
+
+    @PutMapping("/api/admin/technicians/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TechnicianResponse> update(
+            @PathVariable Long id, @Valid @RequestBody UpdateTechnicianRequest request) {
+        return ResponseEntity.ok(technicianService.update(id, request));
     }
 
     /** Lets a logged-in technician toggle their own availability (e.g. going on leave). */

@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -22,4 +23,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
+
+    @Query("SELECT u FROM User u JOIN FETCH u.role ORDER BY u.userId")
+    List<User> findAllWithRole();
+
+    @Query("SELECT u FROM User u JOIN FETCH u.role WHERE u.role.name = :roleName ORDER BY u.userId")
+    List<User> findAllByRoleName(@Param("roleName") String roleName);
+
+    long countByRole_Name(String roleName);
 }
