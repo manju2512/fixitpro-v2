@@ -95,6 +95,40 @@ public class TechnicianService {
     }
 
     /**
+     * Recomputes a technician's running rating average when a review is
+     * created or edited. Pass oldRating=null for a brand-new review (bumps
+     * ratingCount); pass the previous rating for an edit (count unchanged,
+     * average re-weighted).
+     */
+    @Transactional
+    public void recordReviewRating(Long technicianId, Integer oldRating, int newRating) {
+        TechnicianProfile profile = technicianRepository.findById(technicianId)
+                .orElseThrow(() -> new ResourceNotFoundException("Technician not found: " + technicianId));
+
+        java.math.BigDecimal currentAvg = profile.getRatingAvg();
+        int currentCount = profile.getRatingCount();
+
+        java.math.BigDecimal newAvg;
+        int newCount;
+        if (oldRating == null) {
+            newCount = currentCount + 1;
+            java.math.BigDecimal total = currentAvg.multiply(java.math.BigDecimal.valueOf(currentCount))
+                    .add(java.math.BigDecimal.valueOf(newRating));
+            newAvg = total.divide(java.math.BigDecimal.valueOf(newCount), 2, java.math.RoundingMode.HALF_UP);
+        } else {
+            newCount = currentCount;
+            java.math.BigDecimal total = currentAvg.multiply(java.math.BigDecimal.valueOf(currentCount))
+                    .subtract(java.math.BigDecimal.valueOf(oldRating))
+                    .add(java.math.BigDecimal.valueOf(newRating));
+            newAvg = newCount == 0 ? java.math.BigDecimal.ZERO
+                    : total.divide(java.math.BigDecimal.valueOf(newCount), 2, java.math.RoundingMode.HALF_UP);
+        }
+
+        profile.setRatingAvg(newAvg);
+        profile.setRatingCount(newCount);
+    }
+
+    /**
      * Auto-assignment: among technicians available for the given service type,
      * picks the one with the fewest active reservations on the requested date
      * (least-busy-first). Returns empty if no technician is available at all.
