@@ -1,0 +1,76 @@
+name: Integration Test
+
+# There are no unit tests in either backend service yet (see backend-ci.yml)
+# so this workflow is currently the only thing that verifies actual
+# *behavior* rather than just "does it compile". It runs the exact same
+# test_fixitpro_flow.ps1 script used for manual verification throughout
+# development, against a real docker-compose stack (MySQL + Redis +
+# core-service), on GitHub's own runner. `pwsh` (PowerShell Core) ships
+# preinstalled on ubuntu-latest, and the script only calls
+# http://localhost:8080 - since the runner IS the Docker host, that works
+# identically to running it locally.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "services/core-service/**"
+      - "test_fixitpro_flow.ps1"
+      - "docker-compose.yml"
+      - ".github/workflows/integration-test.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/core-service/**"
+      - "test_fixitpro_flow.ps1"
+      - "docker-compose.yml"
+      - ".github/workflows/integration-test.yml"
+  workflow_dispatch: {}
+
+jobs:
+  integration:
+    name: Full booking flow (docker compose)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env for docker compose
+        run: |
+          cat > .env <<EOF
+          DB_NAME=fixitpro
+          DB_USER=fixitpro_user
+          DB_PASSWORD=ci_test_password
+          MYSQL_ROOT_PASSWORD=ci_test_root_password
+          JWT_SECRET=ci-ephemeral-secret-this-container-is-destroyed-at-end-of-run
+          CORS_ALLOWED_ORIGINS=http://localhost:5173
+          ANTHROPIC_API_KEY=
+          EOF
+
+      - name: Start the stack
+        run: docker compose up --build -d
+
+      - name: Wait for core-service to be healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "core-service is up"
+              exit 0
+            fi
+            echo "waiting for core-service... ($i/60)"
+            sleep 5
+          done
+          echo "core-service did not become healthy in time"
+          docker compose logs core-service
+          exit 1
+
+      - name: Run end-to-end flow
+        run: pwsh -File ./test_fixitpro_flow.ps1
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
