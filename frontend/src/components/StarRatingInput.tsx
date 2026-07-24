@@ -17,3 +17,15 @@ export function StarRatingInput({ value, onChange }: { value: number; onChange: 
     </div>
   );
 }
+
+export function StarRatingDisplay({ value }: { value: number }) {
+  return (
+    <div className="flex gap-0.5" aria-label={`${value} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} aria-hidden="true" className={`text-sm leading-none ${n <= value ? 'text-signal' : 'text-line'}`}>
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}

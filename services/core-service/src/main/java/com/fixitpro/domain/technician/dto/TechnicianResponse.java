@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 public record TechnicianResponse(
         Long technicianId,
         String name,
+        Long serviceTypeId,
         String serviceType,
         String bio,
         Integer yearsExperience,
@@ -20,6 +21,7 @@ public record TechnicianResponse(
         return TechnicianResponse.builder()
                 .technicianId(t.getTechnicianId())
                 .name(t.getUser().getUsername())
+                .serviceTypeId(t.getServiceType().getServiceTypeId())
                 .serviceType(t.getServiceType().getName())
                 .bio(t.getBio())
                 .yearsExperience(t.getYearsExperience())

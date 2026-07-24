@@ -6,8 +6,11 @@ import { SignupPage } from '../pages/SignupPage';
 import { BookServicePage } from '../pages/BookServicePage';
 import { MyBookingsPage } from '../pages/MyBookingsPage';
 import { TechnicianJobsPage } from '../pages/TechnicianJobsPage';
+import { AdminDashboardPage } from '../pages/AdminDashboardPage';
+import { AdminUsersPage } from '../pages/AdminUsersPage';
+import { AdminTechniciansPage } from '../pages/AdminTechniciansPage';
+import { AdminReviewsPage } from '../pages/AdminReviewsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
-import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export function AppRoutes() {
@@ -48,7 +51,7 @@ export function AppRoutes() {
           path="admin"
           element={
             <ProtectedRoute roles={['ADMIN']}>
-              <PlaceholderPage title="Admin dashboard" note="Aggregate stats — next phase." />
+              <AdminDashboardPage />
             </ProtectedRoute>
           }
         />
@@ -56,7 +59,7 @@ export function AppRoutes() {
           path="admin/users"
           element={
             <ProtectedRoute roles={['ADMIN']}>
-              <PlaceholderPage title="Users" note="List/activate/deactivate users — next phase." />
+              <AdminUsersPage />
             </ProtectedRoute>
           }
         />
@@ -64,10 +67,15 @@ export function AppRoutes() {
           path="admin/technicians"
           element={
             <ProtectedRoute roles={['ADMIN']}>
-              <PlaceholderPage
-                title="Technicians"
-                note="Provision technicians, edit profiles, moderate reviews — next phase."
-              />
+              <AdminTechniciansPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/reviews"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <AdminReviewsPage />
             </ProtectedRoute>
           }
         />
