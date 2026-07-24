@@ -54,15 +54,22 @@ public class TechnicianController {
         return ResponseEntity.ok(technicianService.update(id, request));
     }
 
+    /** Lets a logged-in technician see their own profile, including current availability. */
+    @GetMapping("/api/technicians/me")
+    @PreAuthorize("hasRole('TECHNICIAN')")
+    public ResponseEntity<TechnicianResponse> getMyProfile(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(TechnicianResponse.from(technicianService.getByUserIdOrThrow(principal.getUserId())));
+    }
+
     /** Lets a logged-in technician toggle their own availability (e.g. going on leave). */
     @PatchMapping("/api/technicians/me/availability")
     @PreAuthorize("hasRole('TECHNICIAN')")
-    public ResponseEntity<Void> setMyAvailability(
+    public ResponseEntity<TechnicianResponse> setMyAvailability(
             @RequestParam boolean available,
             @AuthenticationPrincipal UserPrincipal principal) {
         Long technicianId = technicianService.getByUserIdOrThrow(principal.getUserId()).getTechnicianId();
         technicianService.setAvailability(technicianId, available);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(TechnicianResponse.from(technicianService.getEntityOrThrow(technicianId)));
     }
 
     @PatchMapping("/api/admin/technicians/{id}/availability")

@@ -11,6 +11,8 @@ export const catalogApi = {
 
   getTechnician: (id: number) => apiClient.get<Technician>(`/technicians/${id}`).then((r) => r.data),
 
+  getMyProfile: () => apiClient.get<Technician>('/technicians/me').then((r) => r.data),
+
   setMyAvailability: (available: boolean) =>
-    apiClient.patch(`/technicians/me/availability`, null, { params: { available } }).then((r) => r.data),
+    apiClient.patch<Technician>(`/technicians/me/availability`, null, { params: { available } }).then((r) => r.data),
 };
