@@ -30,6 +30,7 @@ export interface ServiceType {
 export interface Technician {
   technicianId: number;
   name: string;
+  serviceTypeId: number;
   serviceType: string;
   bio: string;
   yearsExperience: number;
