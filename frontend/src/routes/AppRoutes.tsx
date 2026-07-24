@@ -3,6 +3,9 @@ import { Layout } from '../layout/Layout';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
 import { SignupPage } from '../pages/SignupPage';
+import { BookServicePage } from '../pages/BookServicePage';
+import { MyBookingsPage } from '../pages/MyBookingsPage';
+import { TechnicianJobsPage } from '../pages/TechnicianJobsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { ProtectedRoute } from './ProtectedRoute';
@@ -19,10 +22,7 @@ export function AppRoutes() {
           path="book"
           element={
             <ProtectedRoute roles={['CUSTOMER']}>
-              <PlaceholderPage
-                title="Book a service"
-                note="Service picker + technician selection + scheduling — next phase."
-              />
+              <BookServicePage />
             </ProtectedRoute>
           }
         />
@@ -30,10 +30,7 @@ export function AppRoutes() {
           path="my-bookings"
           element={
             <ProtectedRoute roles={['CUSTOMER']}>
-              <PlaceholderPage
-                title="My bookings"
-                note="List of reservations with status tickets and review actions — next phase."
-              />
+              <MyBookingsPage />
             </ProtectedRoute>
           }
         />
@@ -42,10 +39,7 @@ export function AppRoutes() {
           path="my-jobs"
           element={
             <ProtectedRoute roles={['TECHNICIAN']}>
-              <PlaceholderPage
-                title="My jobs"
-                note="Assigned jobs, availability toggle, and status updates — next phase."
-              />
+              <TechnicianJobsPage />
             </ProtectedRoute>
           }
         />
