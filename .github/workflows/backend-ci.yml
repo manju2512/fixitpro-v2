@@ -1,0 +1,54 @@
+name: Backend CI
+
+# There's no parent/aggregator pom - core-service and ai-chat-service are
+# independent Maven projects - so they're built as a matrix rather than one
+# `mvn` call at the repo root.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "services/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [core-service, ai-chat-service]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: services/${{ matrix.service }}/pom.xml
+
+      # -DskipTests, not -Dmaven.test.skip=true: this still *compiles* any
+      # test sources (catching type errors in tests), it just doesn't run
+      # them. There are no test sources yet in either service - see the
+      # note in integration-test.yml about how correctness is actually
+      # verified for now - but this keeps CI meaningful the moment tests
+      # are added without needing a workflow change.
+      - name: Build with Maven
+        working-directory: services/${{ matrix.service }}
+        run: mvn -B -DskipTests clean package
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-jar
+          path: services/${{ matrix.service }}/target/*.jar
+          retention-days: 7
