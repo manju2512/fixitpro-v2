@@ -3,33 +3,43 @@ name: Integration Test
 # There are no unit tests in either backend service yet (see backend-ci.yml)
 # so this workflow is currently the only thing that verifies actual
 # *behavior* rather than just "does it compile". It runs the exact same
-# test_fixitpro_flow.ps1 script used for manual verification throughout
-# development, against a real docker-compose stack (MySQL + Redis +
-# core-service), on GitHub's own runner. `pwsh` (PowerShell Core) ships
-# preinstalled on ubuntu-latest, and the script only calls
-# http://localhost:8080 - since the runner IS the Docker host, that works
-# identically to running it locally.
+# test_fixitpro_flow.ps1 and test_ai_chat_flow.ps1 scripts used for manual
+# verification throughout development, against a real docker-compose stack
+# (MySQL + Redis + core-service + ai-chat-service), on GitHub's own runner.
+# `pwsh` (PowerShell Core) ships preinstalled on ubuntu-latest, and the
+# scripts only call localhost - since the runner IS the Docker host, that
+# works identically to running them locally.
+#
+# Requires a GROQ_API_KEY repository secret (Settings > Secrets and
+# variables > Actions) for the AI chat portion - get a free key at
+# https://console.groq.com. Without it, test_ai_chat_flow.ps1 will correctly
+# fail fast (the assistant reports it isn't configured) rather than silently
+# skipping the AI checks.
 
 on:
   push:
     branches: [main, develop]
     paths:
       - "services/core-service/**"
+      - "services/ai-chat-service/**"
       - "test_fixitpro_flow.ps1"
+      - "test_ai_chat_flow.ps1"
       - "docker-compose.yml"
       - ".github/workflows/integration-test.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "services/core-service/**"
+      - "services/ai-chat-service/**"
       - "test_fixitpro_flow.ps1"
+      - "test_ai_chat_flow.ps1"
       - "docker-compose.yml"
       - ".github/workflows/integration-test.yml"
   workflow_dispatch: {}
 
 jobs:
   integration:
-    name: Full booking flow (docker compose)
+    name: Full booking + AI chat flow (docker compose)
     runs-on: ubuntu-latest
 
     steps:
@@ -44,7 +54,7 @@ jobs:
           MYSQL_ROOT_PASSWORD=ci_test_root_password
           JWT_SECRET=ci-ephemeral-secret-this-container-is-destroyed-at-end-of-run
           CORS_ALLOWED_ORIGINS=http://localhost:5173
-          ANTHROPIC_API_KEY=
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
           EOF
 
       - name: Start the stack
@@ -64,8 +74,25 @@ jobs:
           docker compose logs core-service
           exit 1
 
-      - name: Run end-to-end flow
+      - name: Wait for ai-chat-service to be healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8081/actuator/health | grep -q '"status":"UP"'; then
+              echo "ai-chat-service is up"
+              exit 0
+            fi
+            echo "waiting for ai-chat-service... ($i/60)"
+            sleep 5
+          done
+          echo "ai-chat-service did not become healthy in time"
+          docker compose logs ai-chat-service
+          exit 1
+
+      - name: Run core booking flow
         run: pwsh -File ./test_fixitpro_flow.ps1
+
+      - name: Run AI chat flow
+        run: pwsh -File ./test_ai_chat_flow.ps1
 
       - name: Dump logs on failure
         if: failure()
