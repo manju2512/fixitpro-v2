@@ -63,6 +63,12 @@ $resp2 = Invoke-Json POST $CHAT "/chat/message" @{ messages = $history } $TOKEN
 Write-Host "Assistant: $($resp2.reply)"
 Assert-Configured $resp2
 
+Write-Host "== 3b. Confirm the booking (the assistant is expected to ask before calling create_reservation - this is intended safety behavior, not a bug) =="
+$history = $resp2.messages + @(@{ role = "user"; content = "Yes, that all looks correct - please go ahead and book it." })
+$resp2b = Invoke-Json POST $CHAT "/chat/message" @{ messages = $history } $TOKEN
+Write-Host "Assistant: $($resp2b.reply)"
+Assert-Configured $resp2b
+
 Write-Host "== 4. Verify a real reservation actually got created via core-service directly =="
 $reservations = Invoke-Json GET $CORE "/reservations/me" $null $TOKEN
 $latest = $reservations | Sort-Object reservationId -Descending | Select-Object -First 1
@@ -75,7 +81,7 @@ if ($latest -and $latest.comments -match "(?i)switch") {
 }
 
 Write-Host "== 5. Ask about existing bookings (should trigger list_my_reservations) =="
-$history = $resp2.messages + @(@{ role = "user"; content = "What bookings do I have right now?" })
+$history = $resp2b.messages + @(@{ role = "user"; content = "What bookings do I have right now?" })
 $resp3 = Invoke-Json POST $CHAT "/chat/message" @{ messages = $history } $TOKEN
 Write-Host "Assistant: $($resp3.reply)"
 Assert-Configured $resp3
