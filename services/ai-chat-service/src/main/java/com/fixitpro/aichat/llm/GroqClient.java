@@ -6,8 +6,12 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Groq's API deliberately mirrors OpenAI's Chat Completions format
@@ -21,16 +25,26 @@ public class GroqClient {
 
     /**
      * openai/gpt-oss-* models on Groq spend part of this budget on an internal "reasoning"
-     * channel before ever emitting a tool call or reply - with the old 1024 cap, a request
-     * that follows a tool result (where the model has more context to reason over) could
-     * burn the whole budget on reasoning and hit finish_reason=length with a null/empty
-     * content and no tool_calls, which surfaces here as "I wasn't able to come up with a
-     * reply" rather than a crash. Raised the cap and pinned reasoning_effort=low (supported
-     * by gpt-oss-20b/120b on Groq) to keep replies snappy for a chat-widget use case and
-     * leave headroom for the actual answer.
+     * channel before ever emitting a tool call or reply - pinning reasoning_effort=low
+     * (supported by gpt-oss-20b/120b on Groq) keeps replies snappy for a chat-widget use
+     * case and reduces token spend, which also helps stay under the per-minute rate limit
+     * on the free/on_demand tier (see MAX_RATE_LIMIT_RETRIES below).
      */
-    private static final int MAX_TOKENS = 2048;
+    private static final int MAX_TOKENS = 1024;
     private static final String REASONING_EFFORT = "low";
+
+    /**
+     * The free/on_demand Groq tier enforces a tokens-per-minute cap (8000 TPM as of this
+     * writing) shared across a whole minute - a short back-to-back conversation (several
+     * chat turns, each resending the growing history + tool schema) can hit that cap well
+     * within normal use, returning 429 with an exact "try again in N.NNNs" wait. That's a
+     * transient, expected condition on this tier, not a real failure - so retry instead of
+     * immediately giving up. Capped at 3 attempts so a persistently exhausted quota (e.g.
+     * Requested tokens alone exceeding what a wait would free up) still fails fast instead
+     * of hanging the request indefinitely.
+     */
+    private static final int MAX_RATE_LIMIT_RETRIES = 3;
+    private static final Pattern RETRY_AFTER_PATTERN = Pattern.compile("try again in ([0-9.]+)s");
 
     private final WebClient webClient;
     private final String apiKey;
@@ -65,12 +79,25 @@ public class GroqClient {
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
-                .onStatus(status -> status.isError(), response ->
+                .onStatus(status -> status.value() == 429, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("(no body)")
+                                .map(RateLimitException::new))
+                .onStatus(status -> status.isError() && status.value() != 429, response ->
                         response.bodyToMono(String.class)
                                 .defaultIfEmpty("(no body)")
                                 .map(body -> new GroqApiException(
                                         "Groq API returned " + response.statusCode() + ": " + body)))
-                .bodyToMono(ChatCompletionResponse.class);
+                .bodyToMono(ChatCompletionResponse.class)
+                .retryWhen(Retry.from(signals -> signals.flatMap(signal -> {
+                    Throwable failure = signal.failure();
+                    if (!(failure instanceof RateLimitException rle) || signal.totalRetries() >= MAX_RATE_LIMIT_RETRIES) {
+                        return Mono.error(failure);
+                    }
+                    // Add a small buffer on top of Groq's stated wait so we don't clock back in
+                    // right at the edge of the window and get rate-limited again immediately.
+                    return Mono.delay(rle.retryAfter().plusMillis(250));
+                })));
     }
 
     public static class GroqApiException extends RuntimeException {
@@ -82,6 +109,30 @@ public class GroqClient {
     public static class GroqNotConfiguredException extends RuntimeException {
         public GroqNotConfiguredException() {
             super("GROQ_API_KEY is not set - the AI assistant isn't configured yet.");
+        }
+    }
+
+    /** Groq's 429 body includes the exact wait time (e.g. "Please try again in 8.115s") - parsed here so the retry can honor it. */
+    public static class RateLimitException extends RuntimeException {
+        private final Duration retryAfter;
+
+        public RateLimitException(String body) {
+            super("Groq API rate limit hit: " + body);
+            this.retryAfter = parseRetryAfter(body);
+        }
+
+        public Duration retryAfter() {
+            return retryAfter;
+        }
+
+        private static Duration parseRetryAfter(String body) {
+            Matcher matcher = RETRY_AFTER_PATTERN.matcher(body);
+            if (matcher.find()) {
+                double seconds = Double.parseDouble(matcher.group(1));
+                return Duration.ofMillis((long) (seconds * 1000));
+            }
+            // Fallback if Groq ever changes the message format and we can't parse it.
+            return Duration.ofSeconds(10);
         }
     }
 }
