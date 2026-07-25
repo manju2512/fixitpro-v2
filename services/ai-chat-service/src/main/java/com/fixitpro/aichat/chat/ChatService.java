@@ -8,6 +8,8 @@ import com.fixitpro.aichat.llm.ToolCall;
 import com.fixitpro.aichat.llm.ToolSpec;
 import com.fixitpro.aichat.tools.ToolDefinitions;
 import com.fixitpro.aichat.tools.ToolExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -19,6 +21,8 @@ import java.util.List;
 
 @Service
 public class ChatService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
 
     /** Guards against a runaway tool-use loop (e.g. the model repeatedly calling a tool without ever concluding) burning API quota indefinitely. */
     private static final int MAX_TOOL_ITERATIONS = 6;
@@ -52,10 +56,12 @@ public class ChatService {
                         Mono.just(new ChatResponse(
                                 "The AI assistant isn't set up yet - an admin needs to configure GROQ_API_KEY.",
                                 request.messages())))
-                .onErrorResume(e ->
-                        Mono.just(new ChatResponse(
-                                "Sorry, something went wrong on my end. Please try again in a moment.",
-                                request.messages())));
+                .onErrorResume(e -> {
+                    log.error("Chat request failed for user {}: {}", user.username(), e.toString(), e);
+                    return Mono.just(new ChatResponse(
+                            "Sorry, something went wrong on my end. Please try again in a moment.",
+                            request.messages()));
+                });
     }
 
     private Mono<String> runLoop(List<ChatCompletionMessage> messages, List<ToolSpec> tools, String token, int depth) {
