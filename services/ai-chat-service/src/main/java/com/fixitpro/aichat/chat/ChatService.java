@@ -77,9 +77,13 @@ public class ChatService {
                             || assistantMessage.toolCalls() == null
                             || assistantMessage.toolCalls().isEmpty()) {
                         String content = assistantMessage.content();
-                        return Mono.just(content != null && !content.isBlank()
-                                ? content
-                                : "Sorry, I wasn't able to come up with a reply to that - could you rephrase?");
+                        if (content == null || content.isBlank()) {
+                            log.warn("Groq returned no usable content at depth {} (finishReason={}) - likely ran out of " +
+                                    "max_tokens on the reasoning channel before producing a reply or tool call.",
+                                    depth, response.finishReason());
+                            return Mono.just("Sorry, I wasn't able to come up with a reply to that - could you rephrase?");
+                        }
+                        return Mono.just(content);
                     }
 
                     List<ChatCompletionMessage> withAssistantTurn = new ArrayList<>(messages);

@@ -19,7 +19,18 @@ import java.util.List;
 @Component
 public class GroqClient {
 
-    private static final int MAX_TOKENS = 1024;
+    /**
+     * openai/gpt-oss-* models on Groq spend part of this budget on an internal "reasoning"
+     * channel before ever emitting a tool call or reply - with the old 1024 cap, a request
+     * that follows a tool result (where the model has more context to reason over) could
+     * burn the whole budget on reasoning and hit finish_reason=length with a null/empty
+     * content and no tool_calls, which surfaces here as "I wasn't able to come up with a
+     * reply" rather than a crash. Raised the cap and pinned reasoning_effort=low (supported
+     * by gpt-oss-20b/120b on Groq) to keep replies snappy for a chat-widget use case and
+     * leave headroom for the actual answer.
+     */
+    private static final int MAX_TOKENS = 2048;
+    private static final String REASONING_EFFORT = "low";
 
     private final WebClient webClient;
     private final String apiKey;
@@ -43,7 +54,10 @@ public class GroqClient {
             return Mono.error(new GroqNotConfiguredException());
         }
 
-        ChatCompletionRequest request = new ChatCompletionRequest(model, messages, tools, MAX_TOKENS);
+        // reasoning_effort is only accepted by the gpt-oss family - sending it to any other
+        // model would be an unrecognized field, so only include it when it actually applies.
+        String reasoningEffort = model.contains("gpt-oss") ? REASONING_EFFORT : null;
+        ChatCompletionRequest request = new ChatCompletionRequest(model, messages, tools, MAX_TOKENS, reasoningEffort);
 
         return webClient.post()
                 .uri("/chat/completions")

@@ -10,6 +10,7 @@ public record ChatCompletionRequest(
         String model,
         List<ChatCompletionMessage> messages,
         List<ToolSpec> tools,
-        @JsonProperty("max_tokens") int maxTokens
+        @JsonProperty("max_tokens") int maxTokens,
+        @JsonProperty("reasoning_effort") String reasoningEffort
 ) {
 }
