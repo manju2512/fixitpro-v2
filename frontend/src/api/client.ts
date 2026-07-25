@@ -19,20 +19,9 @@ export const tokenStorage = {
   },
 };
 
-export const apiClient = axios.create({
-  baseURL: BASE_URL,
-});
-
-apiClient.interceptors.request.use((config) => {
-  const token = tokenStorage.getAccessToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 // Queue concurrent requests while a single refresh is in flight, instead of
-// firing one refresh call per failed request.
+// firing one refresh call per failed request. Module-level so it's shared
+// across every client this factory creates (core-service, ai-chat-service).
 let refreshPromise: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
@@ -46,31 +35,55 @@ async function refreshAccessToken(): Promise<string> {
   return data.accessToken;
 }
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+/**
+ * Both backend services verify the same JWT (ai-chat-service never issues its own -
+ * see services/ai-chat-service's JwtVerifier), so any client built here can reuse the
+ * same access token and the same refresh-on-401 flow, just against a different baseURL.
+ */
+function createApiClient(baseURL: string) {
+  const client = axios.create({ baseURL });
 
-    const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
-      originalRequest._retry = true;
-      try {
-        refreshPromise ??= refreshAccessToken().finally(() => {
-          refreshPromise = null;
-        });
-        const newAccessToken = await refreshPromise;
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        tokenStorage.clear();
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
+  client.interceptors.request.use((config) => {
+    const token = tokenStorage.getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  });
 
-    return Promise.reject(error);
-  },
-);
+  client.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError) => {
+      const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+
+      const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
+      if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
+        originalRequest._retry = true;
+        try {
+          refreshPromise ??= refreshAccessToken().finally(() => {
+            refreshPromise = null;
+          });
+          const newAccessToken = await refreshPromise;
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          return client(originalRequest);
+        } catch (refreshError) {
+          tokenStorage.clear();
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    },
+  );
+
+  return client;
+}
+
+export const apiClient = createApiClient(BASE_URL);
+
+const CHAT_BASE_URL = import.meta.env.VITE_CHAT_API_BASE_URL ?? 'http://localhost:8081/api';
+export const chatApiClient = createApiClient(CHAT_BASE_URL);
 
 /** Pulls a human-readable message out of core-service's error response shape. */
 export function getApiErrorMessage(error: unknown): string {
