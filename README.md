@@ -11,6 +11,9 @@ A **targeted microservices split** rather than a full monolith or a full microse
 - **`core-service`** — the transactional heart: auth, users, service catalog, technicians, reservations, reviews. These all participate in the same transactions (booking a reservation touches user + technician + service_type together), so keeping them as one modular monolith avoids solving distributed transactions for no real benefit.
 - **`ai-chat-service`** — the AI booking assistant, split out because it has a genuinely different profile: bursty/latency-sensitive traffic, calls an external LLM API, and doesn't need direct DB access. It drives bookings the same way any external client would — by calling `core-service`'s REST API (with tool-calling), which still enforces all validation/auth. This is a real architectural boundary, not a split for its own sake.
 
+Note:"free Groq tier is rate-limited; upgrade to Dev Tier for production load"
+
+
 ```
                     ┌──────────────────┐
    React SPA  ───▶  │   core-service    │───▶ MySQL
@@ -21,7 +24,7 @@ A **targeted microservices split** rather than a full monolith or a full microse
         │                     │ REST (tool-calling)
         └──────────────────▶  │
                     ┌──────────────────┐
-                    │  ai-chat-service  │───▶ Anthropic API
+                    │  ai-chat-service  │───▶ Groq API
                     │  (stateless,      │
                     │   no DB access)   │
                     └──────────────────┘
@@ -73,7 +76,49 @@ git push -u origin feature/review-moderation
 
 Keeping real PR history (even solo) is worth doing — it's a concrete, checkable artifact of your process that a reviewer or interviewer can look at directly.
 
-## Status: Phase 2 — Booking Domain (complete, verified, merged to `main`)
+## Status: Phase 5 — AI Booking Assistant (complete, verified in CI)
+
+Built so far:
+- **Phase 1**: Foundation — Spring Boot skeleton, Flyway schema, JWT auth, security, error handling, Docker Compose
+- **Phase 2**: Booking domain (in `core-service`) —
+  - `service_type` — public catalog listing, admin CRUD
+  - `technician_profile` — admin provisions technician accounts (creates both the User and the profile in one step); technicians can toggle their own availability
+  - `reservation` — the core booking flow:
+    - Customer creates a booking, **optionally** picking a specific technician
+    - If no technician is chosen, the system **auto-assigns** the least-busy available technician for that service type/date and the booking starts `CONFIRMED`
+    - If a technician is explicitly chosen, the booking starts `PENDING` until confirmed (avoids silently double-booking someone)
+    - Full status lifecycle enforced as an explicit state machine (`ReservationStatus.canTransitionTo`): `PENDING → CONFIRMED → IN_PROGRESS → COMPLETED`, with `CANCELLED` reachable from any non-terminal state
+    - Ownership/role checks in the service layer: customers can only cancel their own bookings, technicians can advance (not cancel) their assigned jobs, admins can do anything including reassigning technicians
+  - `review` — customers review a `COMPLETED` reservation; technicians can reply once; admins moderate replies (`VISIBLE`/`HIDDEN`/`DELETED`)
+  - `business_schedule` — admin-managed schedule overrides (hours/closures)
+  - Self-service password change (`PATCH /api/users/me/password`), admin user listing/activation, admin technician management, and an admin dashboard-stats endpoint
+- **Phase 3**: React + TypeScript frontend — auth (login/signup), customer booking flow, my-bookings, technician jobs view, and an admin console (dashboard, users, technicians, review moderation)
+- **Phase 4**: CI/CD — GitHub Actions workflows for backend build (`backend-ci.yml`), frontend build/lint/typecheck (`frontend-ci.yml`), and a full docker-compose integration test (`integration-test.yml`) that runs the real booking + AI chat flows end-to-end on every push
+- **Phase 5**: AI booking assistant (`ai-chat-service`) — a tool-calling agent (Groq, `openai/gpt-oss-120b`) that looks up services/technicians, books/cancels reservations, and checks on existing bookings entirely through natural conversation, calling `core-service`'s own API (never touching the DB directly, never bypassing its validation/auth). Exposed in the frontend as a floating assistant widget, visible to logged-in customers.
+- **Architecture**: monorepo restructured into `services/core-service` + `services/ai-chat-service`
+
+Verified end-to-end with `test_fixitpro_flow.ps1` (core booking flow) and `test_ai_chat_flow.ps1` (AI chat flow) — both idempotent, rerunnable without resetting the DB, and both gate CI on every push via `integration-test.yml`.
+
+Built so far:
+- **Phase 1**: Foundation — Spring Boot skeleton, Flyway schema, JWT auth, security, error handling, Docker Compose
+- **Phase 2**: Booking domain (in `core-service`) —
+  - `service_type` — public catalog listing, admin CRUD
+  - `technician_profile` — admin provisions technician accounts (creates both the User and the profile in one step); technicians can toggle their own availability
+  - `reservation` — the core booking flow:
+    - Customer creates a booking, **optionally** picking a specific technician
+    - If no technician is chosen, the system **auto-assigns** the least-busy available technician for that service type/date and the booking starts `CONFIRMED`
+    - If a technician is explicitly chosen, the booking starts `PENDING` until confirmed (avoids silently double-booking someone)
+    - Full status lifecycle enforced as an explicit state machine (`ReservationStatus.canTransitionTo`): `PENDING → CONFIRMED → IN_PROGRESS → COMPLETED`, with `CANCELLED` reachable from any non-terminal state
+    - Ownership/role checks in the service layer: customers can only cancel their own bookings, technicians can advance (not cancel) their assigned jobs, admins can do anything including reassigning technicians
+  - `review` — customers review a `COMPLETED` reservation; technicians can reply once; admins moderate replies (`VISIBLE`/`HIDDEN`/`DELETED`)
+  - `business_schedule` — admin-managed schedule overrides (hours/closures)
+  - Self-service password change (`PATCH /api/users/me/password`), admin user listing/activation, admin technician management, and an admin dashboard-stats endpoint
+- **Phase 3**: React + TypeScript frontend — auth (login/signup), customer booking flow, my-bookings, technician jobs view, and an admin console (dashboard, users, technicians, review moderation)
+- **Phase 4**: CI/CD — GitHub Actions workflows for backend build (`backend-ci.yml`), frontend build/lint/typecheck (`frontend-ci.yml`), and a full docker-compose integration test (`integration-test.yml`) that runs the real booking + AI chat flows end-to-end on every push
+- **Phase 5**: AI booking assistant (`ai-chat-service`) — a tool-calling agent (Groq, `openai/gpt-oss-120b`) that looks up services/technicians, books/cancels reservations, and checks on existing bookings entirely through natural conversation, calling `core-service`'s own API (never touching the DB directly, never bypassing its validation/auth). Exposed in the frontend as a floating assistant widget, visible to logged-in customers.
+- **Architecture**: monorepo restructured into `services/core-service` + `services/ai-chat-service`
+
+Verified end-to-end with `test_fixitpro_flow.ps1` (core booking flow) and `test_ai_chat_flow.ps1` (AI chat flow) — both idempotent, rerunnable without resetting the DB, and both gate CI on every push via `integration-test.yml`.
 
 Built so far:
 - **Phase 1**: Foundation — Spring Boot skeleton, Flyway schema, JWT auth, security, error handling, Docker Compose
@@ -104,19 +149,17 @@ password: ChangeMe123
 
 **Change this password immediately in any real deployment** — use `PATCH /api/users/me/password` once logged in as `admin`.
 
-Not yet built: real AI chat logic, React frontend, CI/CD.
-
 ## Running locally
 
 1. Install Docker + Docker Compose.
-2. Copy `.env.example` to `.env` and fill in real values (at minimum, set `JWT_SECRET` — generate one with `openssl rand -base64 64`).
+2. Copy `.env.example` to `.env` and fill in real values (at minimum, set `JWT_SECRET` — generate one with `openssl rand -base64 64`). To use the AI assistant, also set `GROQ_API_KEY` (free, no credit card — get one at https://console.groq.com); without it, `ai-chat-service` runs fine but the assistant just reports it isn't configured yet.
 3. From the project root:
-   ```bash
+```bash
    docker compose up --build
-   ```
-4. `core-service` is available at `http://localhost:8080` (Swagger UI at `/docs`). `ai-chat-service` is available at `http://localhost:8081` (currently just a status placeholder — `GET /api/chat/status`).
+```
+4. `core-service` is available at `http://localhost:8080` (Swagger UI at `/docs`). `ai-chat-service` is available at `http://localhost:8081`, exposing the booking assistant at `POST /api/chat/message`.
 5. Flyway runs migrations automatically on `core-service` startup — no manual schema setup needed.
-
+6. For the frontend: `cd frontend`, copy `.env.example` to `.env` (defaults already point at the two services above), then `npm install && npm run dev` — served at `http://localhost:5173`.
 ### Running a service without Docker (for development)
 
 ```bash
@@ -126,7 +169,8 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 Requires a local MySQL and Redis instance matching the values in `application-dev.yml`, or run just those two via `docker compose up mysql redis`.
 
-## API reference (Phase 1 + 2, all in `core-service`)
+## API reference
+### `core-service`
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
@@ -162,6 +206,12 @@ Requires a local MySQL and Redis instance matching the values in `application-de
 | GET | `/api/admin/technicians` | ADMIN | List every technician (not just available ones) |
 | PUT | `/api/admin/technicians/{id}` | ADMIN | Update a technician's profile |
 | GET | `/api/admin/dashboard/stats` | ADMIN | Aggregate counts: users, reservations by status, reviews, avg rating |
+
+### `ai-chat-service`
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/chat/message` | Any authenticated user (customer-facing tools only) | Send the running conversation (`{ messages: [{role, content}] }`), get back the assistant's reply plus the updated history. Verifies the same JWT `core-service` issues; calls `core-service`'s own API for every lookup/booking action, so all validation and role checks still apply. |
 
 ### Suggested test flow
 

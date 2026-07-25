@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ChatWidget } from '../components/ChatWidget';
 
 function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
   return (
@@ -103,6 +104,8 @@ export function Layout() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <Outlet />
       </main>
+
+      {isAuthenticated && user?.role === 'CUSTOMER' && <ChatWidget />}
     </div>
   );
 }

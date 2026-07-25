@@ -100,6 +100,17 @@ export interface DashboardStats {
   averageRating: number;
 }
 
+// Mirrors services/ai-chat-service/.../chat/ChatMessageDto.java + ChatResponse.java
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+  messages: ChatMessage[];
+}
+
 export interface ApiErrorBody {
   message: string;
   status?: number;
