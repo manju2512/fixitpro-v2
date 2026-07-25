@@ -30,7 +30,8 @@
 
     <dependencies>
         <!-- WebFlux: needed for streaming AI responses (SSE) to the frontend
-             and non-blocking WebClient calls out to Anthropic + core-service -->
+             and non-blocking WebClient calls out to Groq's OpenAI-compatible
+             API + core-service -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
