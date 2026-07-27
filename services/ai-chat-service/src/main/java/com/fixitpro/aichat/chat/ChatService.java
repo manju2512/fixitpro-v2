@@ -8,6 +8,7 @@ import com.fixitpro.aichat.llm.ToolCall;
 import com.fixitpro.aichat.llm.ToolSpec;
 import com.fixitpro.aichat.tools.ToolDefinitions;
 import com.fixitpro.aichat.tools.ToolExecutor;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 @Service
 public class ChatService {
@@ -56,6 +58,22 @@ public class ChatService {
                         Mono.just(new ChatResponse(
                                 "The AI assistant isn't set up yet - an admin needs to configure GROQ_API_KEY.",
                                 request.messages())))
+                // Circuit is open: Groq has been failing/timing out repeatedly, so we're
+                // deliberately not even attempting the call right now. This is a known,
+                // temporary degraded state - worth telling the customer that plainly rather
+                // than lumping it in with the generic "something went wrong" below.
+                .onErrorResume(CallNotPermittedException.class, e -> {
+                    log.warn("Chat request short-circuited for user {} - Groq circuit breaker is open", user.username());
+                    return Mono.just(new ChatResponse(
+                            "The AI assistant is temporarily unavailable - we're aware and it should recover shortly. Please try again in a minute.",
+                            request.messages()));
+                })
+                .onErrorResume(TimeoutException.class, e -> {
+                    log.warn("Chat request timed out for user {}", user.username());
+                    return Mono.just(new ChatResponse(
+                            "That's taking longer than expected. Please try again.",
+                            request.messages()));
+                })
                 .onErrorResume(e -> {
                     log.error("Chat request failed for user {}: {}", user.username(), e.toString(), e);
                     return Mono.just(new ChatResponse(

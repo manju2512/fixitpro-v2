@@ -9,7 +9,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,circuitbreakers,circuitbreakerevents
 
 app:
   jwt:
@@ -21,3 +21,22 @@ app:
   ai:
     groq-api-key: ${GROQ_API_KEY:}
     model: ${GROQ_MODEL:openai/gpt-oss-120b}
+  rate-limit:
+    chat:
+      capacity: ${CHAT_RATE_LIMIT_CAPACITY:15}
+      refill-minutes: ${CHAT_RATE_LIMIT_REFILL_MIN:5}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      groq:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-state-enabled: true
+  timelimiter:
+    instances:
+      groq:
+        timeout-duration: 20s
