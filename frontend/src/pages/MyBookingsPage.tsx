@@ -9,6 +9,21 @@ import type { Reservation } from '../types';
 
 const CANCELLABLE_STATUSES: Reservation['status'][] = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'];
 
+function BookingCardSkeleton() {
+  return (
+    <div className="animate-pulse rounded-lg border border-line border-l-4 border-l-line bg-paper-raised p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <div className="h-4 w-32 rounded bg-line" />
+          <div className="mt-2 h-3 w-40 rounded bg-line" />
+          <div className="mt-2 h-3 w-48 rounded bg-line" />
+        </div>
+        <div className="h-5 w-20 rounded-full bg-line" />
+      </div>
+    </div>
+  );
+}
+
 function BookingCard({ reservation }: { reservation: Reservation }) {
   const queryClient = useQueryClient();
   const [reviewing, setReviewing] = useState(false);
@@ -78,7 +93,7 @@ export function MyBookingsPage() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold">My bookings</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">My bookings</h1>
         <Link
           to="/book"
           className="rounded-md bg-signal px-3 py-1.5 text-sm font-semibold text-signal-ink transition-opacity hover:opacity-90"
@@ -87,13 +102,29 @@ export function MyBookingsPage() {
         </Link>
       </div>
 
-      {query.isLoading && <p className="mt-4 text-sm text-ink-soft">Loading your bookings…</p>}
-      {query.isError && <p className="mt-4 text-sm text-rust">{getApiErrorMessage(query.error)}</p>}
+      {query.isError && (
+        <p className="mt-4 rounded-md border border-rust/30 bg-rust/10 px-4 py-3 text-sm text-rust">
+          {getApiErrorMessage(query.error)}
+        </p>
+      )}
+
+      {query.isLoading && (
+        <div className="mt-4 flex flex-col gap-3">
+          <BookingCardSkeleton />
+          <BookingCardSkeleton />
+        </div>
+      )}
 
       {query.data?.length === 0 && (
-        <p className="mt-4 rounded-md border border-dashed border-line bg-paper-raised px-4 py-3 text-sm text-ink-soft">
-          No bookings yet. Book your first service to see it here.
-        </p>
+        <div className="mt-4 rounded-lg border border-dashed border-line bg-paper-raised px-4 py-8 text-center">
+          <p className="text-sm text-ink-soft">No bookings yet.</p>
+          <Link
+            to="/book"
+            className="mt-3 inline-block rounded-md bg-signal px-4 py-2 text-sm font-semibold text-signal-ink transition-opacity hover:opacity-90"
+          >
+            Book your first service
+          </Link>
+        </div>
       )}
 
       <div className="mt-4 flex flex-col gap-3">

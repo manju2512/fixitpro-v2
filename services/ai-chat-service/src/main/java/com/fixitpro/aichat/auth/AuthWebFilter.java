@@ -2,6 +2,7 @@ package com.fixitpro.aichat.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -22,8 +23,13 @@ import java.util.Map;
  * Spring Security machinery - this service only needs "who is this and are
  * they real", it delegates all actual authorization to core-service when
  * tools call back into it.
+ *
+ * @Order(1): must run after CorsWebFilter (HIGHEST_PRECEDENCE) and before
+ * ChatRateLimitWebFilter (@Order(2)), which needs the AuthenticatedUser this
+ * filter resolves in order to rate-limit per user rather than per IP.
  */
 @Component
+@Order(1)
 public class AuthWebFilter implements WebFilter {
 
     public static final String USER_ATTRIBUTE = "authenticatedUser";

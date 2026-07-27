@@ -1,5 +1,11 @@
 package com.fixitpro.aichat.llm;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.reactor.circuitbreaker.operator.CircuitBreakerOperator;
+import io.github.resilience4j.reactor.timelimiter.TimeLimiterOperator;
+import io.github.resilience4j.timelimiter.TimeLimiter;
+import io.github.resilience4j.timelimiter.TimeLimiterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -46,17 +52,26 @@ public class GroqClient {
     private static final int MAX_RATE_LIMIT_RETRIES = 3;
     private static final Pattern RETRY_AFTER_PATTERN = Pattern.compile("try again in ([0-9.]+)s");
 
+    /** Named instance - config lives under resilience4j.circuitbreaker.instances.groq / .timelimiter.instances.groq in application.yml. */
+    private static final String RESILIENCE_INSTANCE_NAME = "groq";
+
     private final WebClient webClient;
     private final String apiKey;
     private final String model;
+    private final CircuitBreaker circuitBreaker;
+    private final TimeLimiter timeLimiter;
 
     public GroqClient(
             WebClient.Builder webClientBuilder,
             @Value("${app.ai.groq-api-key}") String apiKey,
-            @Value("${app.ai.model}") String model) {
+            @Value("${app.ai.model}") String model,
+            CircuitBreakerRegistry circuitBreakerRegistry,
+            TimeLimiterRegistry timeLimiterRegistry) {
         this.webClient = webClientBuilder.baseUrl("https://api.groq.com/openai/v1").build();
         this.apiKey = apiKey;
         this.model = model;
+        this.circuitBreaker = circuitBreakerRegistry.circuitBreaker(RESILIENCE_INSTANCE_NAME);
+        this.timeLimiter = timeLimiterRegistry.timeLimiter(RESILIENCE_INSTANCE_NAME);
     }
 
     public boolean isConfigured() {
@@ -97,7 +112,14 @@ public class GroqClient {
                     // Add a small buffer on top of Groq's stated wait so we don't clock back in
                     // right at the edge of the window and get rate-limited again immediately.
                     return Mono.delay(rle.retryAfter().plusMillis(250));
-                })));
+                })))
+                // Hard cap on total time (including the 429 retries above) - without this, a
+                // stalled connection to Groq could hang the request indefinitely.
+                .transformDeferred(TimeLimiterOperator.of(timeLimiter))
+                // Outermost: once failures/timeouts pile up, trip the breaker so subsequent
+                // requests fail instantly (CallNotPermittedException) instead of each one
+                // individually waiting out the same doomed timeout.
+                .transformDeferred(CircuitBreakerOperator.of(circuitBreaker));
     }
 
     public static class GroqApiException extends RuntimeException {
