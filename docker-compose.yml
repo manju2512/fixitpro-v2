@@ -55,6 +55,7 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
     ports:
       - "8080:8080"
+    init: true
 
   ai-chat-service:
     build:
@@ -71,6 +72,7 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
     ports:
       - "8081:8081"
+    init: true
 
 volumes:
   mysql_data:

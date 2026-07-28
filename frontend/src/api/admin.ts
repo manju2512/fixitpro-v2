@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { DashboardStats, Role, Technician, UserSummary } from '../types';
+import type { DashboardStats, Role, ServiceType, Technician, UserSummary } from '../types';
 
 export const adminApi = {
   listUsers: (role?: Role) =>
@@ -36,4 +36,22 @@ export const adminApi = {
       .then((r) => r.data),
 
   dashboardStats: () => apiClient.get<DashboardStats>('/admin/dashboard/stats').then((r) => r.data),
+
+  // Service types - the trades FixitPro offers (Electrician, Plumber,
+  // Carpenter, and whatever gets added later - Housekeeping, Painting, etc).
+  // listAllServiceTypes includes inactive ones (the public /service-types
+  // endpoint only returns active) so a deactivated one can be found and
+  // turned back on.
+  listAllServiceTypes: () => apiClient.get<ServiceType[]>('/admin/service-types').then((r) => r.data),
+
+  createServiceType: (params: { name: string; description: string; basePrice: number }) =>
+    apiClient.post<ServiceType>('/admin/service-types', params).then((r) => r.data),
+
+  updateServiceType: (id: number, params: { name: string; description: string; basePrice: number }) =>
+    apiClient.put<ServiceType>(`/admin/service-types/${id}`, params).then((r) => r.data),
+
+  setServiceTypeActive: (id: number, active: boolean) =>
+    apiClient
+      .patch<ServiceType>(`/admin/service-types/${id}/status`, null, { params: { active } })
+      .then((r) => r.data),
 };

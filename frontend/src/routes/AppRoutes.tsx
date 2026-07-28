@@ -10,6 +10,7 @@ import { AdminDashboardPage } from '../pages/AdminDashboardPage';
 import { AdminUsersPage } from '../pages/AdminUsersPage';
 import { AdminTechniciansPage } from '../pages/AdminTechniciansPage';
 import { AdminReviewsPage } from '../pages/AdminReviewsPage';
+import { AdminServiceTypesPage } from '../pages/AdminServiceTypesPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -76,6 +77,14 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={['ADMIN']}>
               <AdminReviewsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/service-types"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <AdminServiceTypesPage />
             </ProtectedRoute>
           }
         />
