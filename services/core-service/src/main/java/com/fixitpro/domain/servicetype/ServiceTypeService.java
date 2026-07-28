@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +20,15 @@ public class ServiceTypeService {
     @Transactional(readOnly = true)
     public List<ServiceTypeResponse> listActive() {
         return serviceTypeRepository.findByActiveTrue().stream()
+                .map(ServiceTypeResponse::from)
+                .toList();
+    }
+
+    /** Admin-only view: includes inactive (soft-deleted) service types so they can be reactivated. */
+    @Transactional(readOnly = true)
+    public List<ServiceTypeResponse> listAll() {
+        return serviceTypeRepository.findAll().stream()
+                .sorted(Comparator.comparing(ServiceType::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(ServiceTypeResponse::from)
                 .toList();
     }
@@ -54,9 +64,21 @@ public class ServiceTypeService {
 
     @Transactional
     public void deactivate(Long id) {
+        setActive(id, false);
+    }
+
+    /**
+     * Toggle a service type on/off without deleting it - reservation history
+     * referencing this service type stays intact either way (no FK cascade
+     * delete), this just controls whether it's offered going forward. Same
+     * pattern as TechnicianService's availability toggle.
+     */
+    @Transactional
+    public ServiceTypeResponse setActive(Long id, boolean active) {
         ServiceType serviceType = serviceTypeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service type not found: " + id));
-        serviceType.setActive(false);
+        serviceType.setActive(active);
+        return ServiceTypeResponse.from(serviceType);
     }
 
     @Transactional(readOnly = true)

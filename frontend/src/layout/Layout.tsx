@@ -51,6 +51,7 @@ function roleNavItems(role: 'CUSTOMER' | 'TECHNICIAN' | 'ADMIN') {
           <NavItem to="/admin">Dashboard</NavItem>
           <NavItem to="/admin/users">Users</NavItem>
           <NavItem to="/admin/technicians">Technicians</NavItem>
+          <NavItem to="/admin/service-types">Services</NavItem>
           <NavItem to="/admin/reviews">Reviews</NavItem>
         </>
       );

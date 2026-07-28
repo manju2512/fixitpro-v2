@@ -10,7 +10,8 @@ public record ServiceTypeResponse(
         Long serviceTypeId,
         String name,
         String description,
-        BigDecimal basePrice
+        BigDecimal basePrice,
+        boolean active
 ) {
     public static ServiceTypeResponse from(ServiceType s) {
         return ServiceTypeResponse.builder()
@@ -18,6 +19,7 @@ public record ServiceTypeResponse(
                 .name(s.getName())
                 .description(s.getDescription())
                 .basePrice(s.getBasePrice())
+                .active(s.isActive())
                 .build();
     }
 }
