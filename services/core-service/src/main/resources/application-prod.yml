@@ -12,6 +12,8 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}   # Upstash and most managed free-tier Redis require TLS - set REDIS_SSL=true on Render
 
   jpa:
     show-sql: false

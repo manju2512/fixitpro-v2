@@ -8,5 +8,5 @@
 -- CHANGE THIS PASSWORD IMMEDIATELY after first login in any real deployment.
 
 INSERT INTO users (username, email, password_hash, phone, role_id, is_active)
-SELECT 'admin', 'admin@fixitpro.local', '$2b$12$zwBve3.zo0iHSTb/jRz.P.bEQLCNQcnDJOTXNni9jDZ/vwp4F8ShO', NULL, r.role_id, TRUE
+SELECT 'admin', 'admin@fixitpro.local', '$2a$12$okuoLakGq2Hn2Pdmgiq9DumP.UAYaUnxtJWvW4oLhR3GQb/rH7sLe', NULL, r.role_id, TRUE
 FROM role r WHERE r.name = 'ADMIN';
