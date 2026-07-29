@@ -58,11 +58,7 @@ app:
     refresh-token-expiry-ms: 604800000    # 7 days
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
-  ai:
-    anthropic-api-key: ${ANTHROPIC_API_KEY:}
-    model: claude-sonnet-4-6
   rate-limit:
       auth:
         capacity: ${AUTH_RATE_LIMIT_CAPACITY:5}        # requests
         refill-minutes: ${AUTH_RATE_LIMIT_REFILL_MIN:1} # per this many minutes
-
