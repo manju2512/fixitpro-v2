@@ -39,4 +39,4 @@ resilience4j:
   timelimiter:
     instances:
       groq:
-        timeout-duration: 20s
+        timeout-duration: 45s

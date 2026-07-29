@@ -55,6 +55,8 @@ jobs:
           JWT_SECRET=ci-ephemeral-secret-this-container-is-destroyed-at-end-of-run
           CORS_ALLOWED_ORIGINS=http://localhost:5173
           GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          AUTH_RATE_LIMIT_CAPACITY=100
+          AUTH_RATE_LIMIT_REFILL_MIN=1
           EOF
 
       - name: Start the stack
