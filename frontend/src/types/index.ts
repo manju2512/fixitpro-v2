@@ -25,6 +25,7 @@ export interface ServiceType {
   name: string;
   description: string;
   basePrice: number;
+  active: boolean;
 }
 
 export interface Technician {
