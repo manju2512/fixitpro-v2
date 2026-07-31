@@ -9,7 +9,7 @@ public record SignupRequest(
 
         @NotBlank(message = "Username is required")
         @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
-        @Pattern(regexp = "^[a-zA-Z0-9_.]+$", message = "Username can only contain letters, numbers, underscores and dots")
+        @Pattern(regexp = "^[a-zA-Z0-9_.]+$", message = "Username can only contain letters, numbers, underscores and dots - no spaces")
         String username,
 
         @NotBlank(message = "Email is required")
@@ -24,6 +24,7 @@ public record SignupRequest(
         )
         String password,
 
-        @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must be valid")
+        @NotBlank(message = "Phone number is required")
+        @Pattern(regexp = "^[6-9]\\d{9}$", message = "Phone number must be exactly 10 digits and start with 6-9")
         String phone
 ) {}
