@@ -11,6 +11,7 @@ import { AdminUsersPage } from '../pages/AdminUsersPage';
 import { AdminTechniciansPage } from '../pages/AdminTechniciansPage';
 import { AdminReviewsPage } from '../pages/AdminReviewsPage';
 import { AdminServiceTypesPage } from '../pages/AdminServiceTypesPage';
+import { AdminReservationsPage } from '../pages/AdminReservationsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -85,6 +86,14 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={['ADMIN']}>
               <AdminServiceTypesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/reservations"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <AdminReservationsPage />
             </ProtectedRoute>
           }
         />

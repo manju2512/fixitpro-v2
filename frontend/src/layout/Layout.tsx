@@ -49,6 +49,7 @@ function roleNavItems(role: 'CUSTOMER' | 'TECHNICIAN' | 'ADMIN') {
       return (
         <>
           <NavItem to="/admin">Dashboard</NavItem>
+          <NavItem to="/admin/reservations">Reservations</NavItem>
           <NavItem to="/admin/users">Users</NavItem>
           <NavItem to="/admin/technicians">Technicians</NavItem>
           <NavItem to="/admin/service-types">Services</NavItem>
