@@ -1,14 +1,18 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authApi } from '../api/auth';
 import { getApiErrorMessage } from '../api/client';
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+const USERNAME_CHECK_DEBOUNCE_MS = 400;
 
-function validateUsername(value: string): string | null {
-  if (!value) return null; // don't show an error before the user has typed anything
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error';
+
+function validateUsernameFormat(value: string): string | null {
+  if (!value) return null;
   if (value.length < 3 || value.length > 50) return 'Must be 3-50 characters';
   if (!USERNAME_PATTERN.test(value)) return 'Only letters, numbers, underscores and dots - no spaces';
   return null;
@@ -52,25 +56,75 @@ export function SignupPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ username: '', email: '', password: '', phone: '' });
   const [touched, setTouched] = useState({ username: false, phone: false, password: false });
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const latestCheckedUsername = useRef<string>('');
+
+  const usernameFormatError = validateUsernameFormat(form.username);
+  const phoneError = validatePhone(form.phone);
+  const passwordError = validatePassword(form.password);
+
+  // Debounced live availability check - only fires once the format is
+  // already valid, so we're not hammering the API on every keystroke of an
+  // obviously-invalid username.
+  useEffect(() => {
+    if (!form.username || usernameFormatError) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    const usernameAtRequestTime = form.username;
+
+    const timer = setTimeout(() => {
+      authApi
+        .checkUsername(usernameAtRequestTime)
+        .then((result) => {
+          // Guard against an older, slower request resolving after a newer
+          // one - only trust the response if it's still what's in the box.
+          if (usernameAtRequestTime !== latestCheckedUsername.current) return;
+          setUsernameStatus(result.available ? 'available' : 'taken');
+        })
+        .catch(() => {
+          if (usernameAtRequestTime !== latestCheckedUsername.current) return;
+          setUsernameStatus('error');
+        });
+    }, USERNAME_CHECK_DEBOUNCE_MS);
+
+    latestCheckedUsername.current = usernameAtRequestTime;
+    return () => clearTimeout(timer);
+  }, [form.username, usernameFormatError]);
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
-  const usernameError = validateUsername(form.username);
-  const phoneError = validatePhone(form.phone);
-  const passwordError = validatePassword(form.password);
+  const usernameError =
+    touched.username && usernameFormatError
+      ? usernameFormatError
+      : usernameStatus === 'taken'
+        ? 'This username is already taken'
+        : usernameStatus === 'error'
+          ? "Couldn't check availability - try again"
+          : null;
+
+  const usernameHelperText =
+    usernameStatus === 'checking'
+      ? 'Checking availability…'
+      : usernameStatus === 'available'
+        ? '✓ Username is available'
+        : '3-50 characters. Letters, numbers, underscores and dots only - no spaces.';
 
   const isFormValid = useMemo(
     () =>
       form.username.length >= 3 &&
-      !usernameError &&
+      !usernameFormatError &&
+      usernameStatus === 'available' &&
       form.email.includes('@') &&
       !phoneError &&
       form.phone.length === 10 &&
       !passwordError &&
       form.password.length >= 8,
-    [form, usernameError, phoneError, passwordError],
+    [form, usernameFormatError, usernameStatus, phoneError, passwordError],
   );
 
   function update<K extends keyof typeof form>(key: K, value: string) {
@@ -78,9 +132,6 @@ export function SignupPage() {
   }
 
   function handlePhoneChange(raw: string) {
-    // Strip anything that isn't a digit as the user types, and hard-cap at
-    // 10 - this makes "type however many you want" structurally impossible
-    // rather than just validating after the fact.
     const digitsOnly = raw.replace(/\D/g, '').slice(0, 10);
     update('phone', digitsOnly);
   }
@@ -112,20 +163,24 @@ export function SignupPage() {
 
       <div className="mt-6 rounded-lg border border-line bg-paper-raised p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field
-            label="Username"
-            hint="3-50 characters. Letters, numbers, underscores and dots only - no spaces."
-            error={touched.username ? usernameError : null}
-          >
-            <input
-              className="rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none focus-visible:border-signal"
-              value={form.username}
-              onChange={(e) => update('username', e.target.value)}
-              onBlur={() => setTouched((t) => ({ ...t, username: true }))}
-              autoComplete="username"
-              autoFocus
-              required
-            />
+          <Field label="Username" hint={usernameHelperText} error={usernameError}>
+            <div className="relative">
+              <input
+                className="w-full rounded-md border border-line bg-paper px-3 py-2 pr-8 text-sm outline-none focus-visible:border-signal"
+                value={form.username}
+                onChange={(e) => update('username', e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, username: true }))}
+                autoComplete="username"
+                autoFocus
+                required
+              />
+              {usernameStatus === 'available' && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-moss">✓</span>
+              )}
+              {usernameStatus === 'taken' && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-rust">✕</span>
+              )}
+            </div>
           </Field>
 
           <Field label="Email" hint="We'll send booking confirmations here." error={null}>

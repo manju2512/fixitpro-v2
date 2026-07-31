@@ -4,6 +4,7 @@ import com.fixitpro.auth.dto.AuthResponse;
 import com.fixitpro.auth.dto.LoginRequest;
 import com.fixitpro.auth.dto.RefreshRequest;
 import com.fixitpro.auth.dto.SignupRequest;
+import com.fixitpro.auth.dto.UsernameAvailabilityResponse;
 import com.fixitpro.common.exception.DuplicateResourceException;
 import com.fixitpro.common.exception.ResourceNotFoundException;
 import com.fixitpro.domain.role.Role;
@@ -92,6 +93,18 @@ public class AuthService {
 
         UserPrincipal principal = new UserPrincipal(user);
         return issueTokens(principal);
+    }
+
+    /**
+     * Read-only check backing the signup form's live "is this taken?"
+     * indicator. Deliberately doesn't validate format here (that's the
+     * @Pattern on SignupRequest, enforced at actual submit) - this only
+     * answers the one question the frontend can't otherwise answer:
+     * does a row with this exact username already exist.
+     */
+    @Transactional(readOnly = true)
+    public UsernameAvailabilityResponse checkUsernameAvailability(String username) {
+        return new UsernameAvailabilityResponse(username, !userRepository.existsByUsername(username));
     }
 
     private AuthResponse issueTokens(UserPrincipal principal) {

@@ -10,4 +10,12 @@ export const authApi = {
 
   changePassword: (currentPassword: string, newPassword: string) =>
     apiClient.patch('/users/me/password', { currentPassword, newPassword }).then((r) => r.data),
+
+  // Backs the signup form's live availability indicator - GET, unauthenticated
+  // (matches /api/auth/** permitAll on the backend), safe to call before the
+  // user has any token.
+  checkUsername: (username: string) =>
+    apiClient
+      .get<{ username: string; available: boolean }>('/auth/check-username', { params: { username } })
+      .then((r) => r.data),
 };
