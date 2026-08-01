@@ -1,8 +1,10 @@
 package com.fixitpro.auth;
 
 import com.fixitpro.auth.dto.AuthResponse;
+import com.fixitpro.auth.dto.ForgotPasswordRequest;
 import com.fixitpro.auth.dto.LoginRequest;
 import com.fixitpro.auth.dto.RefreshRequest;
+import com.fixitpro.auth.dto.ResetPasswordRequest;
 import com.fixitpro.auth.dto.SignupRequest;
 import com.fixitpro.auth.dto.UsernameAvailabilityResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request) {
@@ -44,5 +47,22 @@ public class AuthController {
     @GetMapping("/check-username")
     public ResponseEntity<UsernameAvailabilityResponse> checkUsername(@RequestParam String username) {
         return ResponseEntity.ok(authService.checkUsernameAvailability(username));
+    }
+
+    /**
+     * Always returns 200 with the same generic message, whether or not the
+     * email is actually registered - see PasswordResetService.requestReset
+     * for why. Never let this endpoint's response reveal account existence.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.email());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok().build();
     }
 }

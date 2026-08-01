@@ -3,6 +3,8 @@ import { Layout } from '../layout/Layout';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
 import { SignupPage } from '../pages/SignupPage';
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { BookServicePage } from '../pages/BookServicePage';
 import { MyBookingsPage } from '../pages/MyBookingsPage';
 import { TechnicianJobsPage } from '../pages/TechnicianJobsPage';
@@ -22,6 +24,8 @@ export function AppRoutes() {
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
 
         <Route
           path="book"

@@ -18,4 +18,11 @@ export const authApi = {
     apiClient
       .get<{ username: string; available: boolean }>('/auth/check-username', { params: { username } })
       .then((r) => r.data),
+
+  // Always resolves successfully regardless of whether the email is
+  // registered - the backend deliberately never reveals account existence.
+  forgotPassword: (email: string) => apiClient.post<void>('/auth/forgot-password', { email }).then((r) => r.data),
+
+  resetPassword: (token: string, newPassword: string) =>
+    apiClient.post<void>('/auth/reset-password', { token, newPassword }).then((r) => r.data),
 };
