@@ -63,7 +63,7 @@ app:
     model: claude-sonnet-4-6
   # Used to build the link inside password reset emails - must be the
   # actual deployed frontend URL in prod, not localhost.
-  frontend-url: ${FRONTEND_URL:https://fixitpro-v2.vercel.app}
+  frontend-url: ${FRONTEND_URL:https://fixitpro-ten.vercel.app/}
   email:
     resend-api-key: ${RESEND_API_KEY:}
     from-address: ${EMAIL_FROM_ADDRESS:onboarding@resend.dev}
