@@ -81,7 +81,7 @@ Write-Host "== 5. List service types & technicians =="
 Write-Host "== 6. Book a reservation (explicit technician -> starts PENDING) =="
 $resBody = @{
     serviceTypeId = 1; technicianId = $TECH_ID
-    reservationDate = "2026-08-01"; timeSlot = "10:00-12:00"
+    reservationDate = (Get-Date).AddDays(3).ToString("yyyy-MM-dd"); timeSlot = "10:00-12:00"
     address = "12 MG Road, Bengaluru"; telephone = "9998887777"; comments = "Fan not working"
 }
 $res = Invoke-Json POST "/reservations" $resBody $CUST_TOKEN
@@ -163,7 +163,7 @@ Write-Host "== 15. Reservation cancellation rules =="
 Write-Host "-- Book a second reservation (explicit technician) to cancel --"
 $resBody2 = @{
     serviceTypeId = 1; technicianId = $TECH_ID
-    reservationDate = "2026-08-05"; timeSlot = "14:00-16:00"
+    reservationDate = (Get-Date).AddDays(7).ToString("yyyy-MM-dd"); timeSlot = "14:00-16:00"
     address = "45 Brigade Road, Bengaluru"; telephone = "9998887777"; comments = "Socket sparking"
 }
 $res2 = Invoke-Json POST "/reservations" $resBody2 $CUST_TOKEN
@@ -201,7 +201,7 @@ try {
 Write-Host "== 16. Auto-assignment path (no technicianId given) =="
 $resBody3 = @{
     serviceTypeId = 1
-    reservationDate = "2026-08-06"; timeSlot = "09:00-11:00"
+    reservationDate = (Get-Date).AddDays(8).ToString("yyyy-MM-dd"); timeSlot = "09:00-11:00"
     address = "78 Indiranagar, Bengaluru"; telephone = "9998887777"; comments = "New wiring for AC unit"
 }
 $res3 = Invoke-Json POST "/reservations" $resBody3 $CUST_TOKEN
