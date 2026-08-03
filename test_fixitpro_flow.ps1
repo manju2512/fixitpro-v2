@@ -1,5 +1,10 @@
 # FixitPro v2 - end-to-end test flow (PowerShell version)
 # Run with: docker compose up --build -d   (then, from this folder)  .\test_fixitpro_flow.ps1
+# For CI, or if you've changed the seeded admin password from the default,
+# pass it explicitly: .\test_fixitpro_flow.ps1 -AdminPassword "..."
+param(
+    [string]$AdminPassword = "ChangeMe123"
+)
 $ErrorActionPreference = "Stop"
 $BASE = "http://localhost:8080/api"
 
@@ -15,7 +20,7 @@ function Invoke-Json($Method, $Path, $Body = $null, $Token = $null) {
 }
 
 Write-Host "== 1. Admin login =="
-$adminAuth = Invoke-Json POST "/auth/login" @{ username = "admin"; password = "ChangeMe123" }
+$adminAuth = Invoke-Json POST "/auth/login" @{ username = "admin"; password = $AdminPassword }
 $ADMIN_TOKEN = $adminAuth.accessToken
 Write-Host "Admin token acquired: $($ADMIN_TOKEN.Substring(0,20))..."
 
