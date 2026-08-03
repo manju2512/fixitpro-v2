@@ -2,6 +2,7 @@ package com.fixitpro.domain.technician;
 
 import com.fixitpro.domain.technician.dto.AdminCreateTechnicianRequest;
 import com.fixitpro.domain.technician.dto.TechnicianResponse;
+import com.fixitpro.domain.technician.dto.UpdateOwnProfileRequest;
 import com.fixitpro.domain.technician.dto.UpdateTechnicianRequest;
 import com.fixitpro.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -59,6 +60,15 @@ public class TechnicianController {
     @PreAuthorize("hasRole('TECHNICIAN')")
     public ResponseEntity<TechnicianResponse> getMyProfile(@AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(TechnicianResponse.from(technicianService.getByUserIdOrThrow(principal.getUserId())));
+    }
+
+    /** Lets a logged-in technician edit their own bio/experience - not their service type, see UpdateOwnProfileRequest. */
+    @PutMapping("/api/technicians/me")
+    @PreAuthorize("hasRole('TECHNICIAN')")
+    public ResponseEntity<TechnicianResponse> updateMyProfile(
+            @Valid @RequestBody UpdateOwnProfileRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(technicianService.updateOwnProfile(principal.getUserId(), request));
     }
 
     /** Lets a logged-in technician toggle their own availability (e.g. going on leave). */

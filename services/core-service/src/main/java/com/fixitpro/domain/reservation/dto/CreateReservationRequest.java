@@ -22,7 +22,7 @@ public record CreateReservationRequest(
         String address,
 
         @NotBlank(message = "Telephone is required")
-        @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Telephone must be valid")
+        @Pattern(regexp = "^[6-9]\\d{9}$", message = "Telephone must be exactly 10 digits and start with 6-9")
         String telephone,
 
         String comments

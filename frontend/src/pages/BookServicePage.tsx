@@ -7,6 +7,14 @@ import { getApiErrorMessage } from '../api/client';
 import { TIME_SLOTS } from '../constants';
 import type { ServiceType, Technician } from '../types';
 
+const PHONE_PATTERN = /^[6-9]\d{9}$/;
+
+function validatePhone(value: string): string | null {
+  if (!value) return null;
+  if (!PHONE_PATTERN.test(value)) return 'Must be exactly 10 digits, starting with 6-9';
+  return null;
+}
+
 type Step = 'service' | 'technician' | 'details' | 'confirm';
 
 const STEPS: { key: Step; label: string }[] = [
@@ -43,6 +51,7 @@ export function BookServicePage() {
   const [serviceType, setServiceType] = useState<ServiceType | null>(null);
   const [technician, setTechnician] = useState<Technician | null>(null); // null = auto-assign
   const [autoAssign, setAutoAssign] = useState(true);
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [form, setForm] = useState({
     reservationDate: '',
     timeSlot: TIME_SLOTS[0],
@@ -80,6 +89,16 @@ export function BookServicePage() {
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
+
+  function handlePhoneChange(raw: string) {
+    // Strip anything non-digit as the user types and hard-cap at 10 -
+    // structurally prevents "type however many you want" rather than just
+    // validating after the fact (same pattern as SignupPage).
+    update('telephone', raw.replace(/\D/g, '').slice(0, 10));
+  }
+
+  const phoneError = validatePhone(form.telephone);
+  const isDetailsFormValid = form.reservationDate && form.address.trim() && !phoneError && form.telephone.length === 10;
 
   if (createMutation.isSuccess) {
     const res = createMutation.data;
@@ -205,6 +224,8 @@ export function BookServicePage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            setPhoneTouched(true);
+            if (!isDetailsFormValid) return;
             setStep('confirm');
           }}
           className="flex flex-col gap-4"
@@ -249,11 +270,19 @@ export function BookServicePage() {
           <label className="flex flex-col gap-1">
             <span className="text-sm font-medium">Phone</span>
             <input
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={10}
               required
               value={form.telephone}
-              onChange={(e) => update('telephone', e.target.value)}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              onBlur={() => setPhoneTouched(true)}
               className="rounded-md border border-line bg-paper-raised px-3 py-2 text-sm outline-none focus-visible:border-signal"
             />
+            <span className={`text-xs ${phoneTouched && phoneError ? 'text-rust' : 'text-ink-soft'}`}>
+              {phoneTouched && phoneError ? phoneError : 'Exactly 10 digits, starting with 6-9.'}
+            </span>
           </label>
 
           <label className="flex flex-col gap-1">
@@ -276,7 +305,8 @@ export function BookServicePage() {
             </button>
             <button
               type="submit"
-              className="rounded-md bg-signal px-4 py-2 text-sm font-semibold text-signal-ink transition-opacity hover:opacity-90"
+              disabled={!isDetailsFormValid}
+              className="rounded-md bg-signal px-4 py-2 text-sm font-semibold text-signal-ink transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               Review booking
             </button>

@@ -17,6 +17,9 @@ public interface TechnicianRepository extends JpaRepository<TechnicianProfile, L
 
     Optional<TechnicianProfile> findByUser_UserId(Long userId);
 
+    @Query("SELECT t FROM TechnicianProfile t JOIN FETCH t.user JOIN FETCH t.serviceType WHERE t.user.userId = :userId")
+    Optional<TechnicianProfile> findByUserIdWithDetails(@Param("userId") Long userId);
+
     /** Admin view: every technician regardless of availability, unlike the public listing. */
     @Query("SELECT t FROM TechnicianProfile t JOIN FETCH t.user JOIN FETCH t.serviceType ORDER BY t.technicianId")
     List<TechnicianProfile> findAllWithDetails();

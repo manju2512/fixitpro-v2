@@ -19,6 +19,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
@@ -40,6 +42,8 @@ import java.util.Map;
 @Component
 @Order(2)
 public class ChatRateLimitWebFilter implements WebFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatRateLimitWebFilter.class);
 
     private final int capacity;
     private final int refillMinutes;
@@ -74,7 +78,10 @@ public class ChatRateLimitWebFilter implements WebFilter {
         }
 
         Bucket bucket = buckets.get(user.userId(), id -> newBucket());
-        if (bucket.tryConsume(1)) {
+        boolean allowed = bucket.tryConsume(1);
+        log.info("[RATE-LIMIT-DEBUG] user={} configuredCapacity={} availableTokensAfter={} allowed={}",
+                user.userId(), capacity, bucket.getAvailableTokens(), allowed);
+        if (allowed) {
             return chain.filter(exchange);
         }
         return tooManyRequests(exchange);

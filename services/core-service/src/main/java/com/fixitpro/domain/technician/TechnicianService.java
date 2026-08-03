@@ -9,6 +9,7 @@ import com.fixitpro.domain.servicetype.ServiceType;
 import com.fixitpro.domain.servicetype.ServiceTypeRepository;
 import com.fixitpro.domain.technician.dto.AdminCreateTechnicianRequest;
 import com.fixitpro.domain.technician.dto.TechnicianResponse;
+import com.fixitpro.domain.technician.dto.UpdateOwnProfileRequest;
 import com.fixitpro.domain.technician.dto.UpdateTechnicianRequest;
 import com.fixitpro.domain.user.User;
 import com.fixitpro.domain.user.UserRepository;
@@ -104,6 +105,21 @@ public class TechnicianService {
         return TechnicianResponse.from(technicianRepository.findByIdWithDetails(id).orElseThrow());
     }
 
+    /** Self-service: bio and experience only - see UpdateOwnProfileRequest for why serviceType isn't editable here. */
+    @Transactional
+    public TechnicianResponse updateOwnProfile(Long userId, UpdateOwnProfileRequest request) {
+        TechnicianProfile profile = getByUserIdOrThrow(userId);
+
+        if (request.bio() != null) {
+            profile.setBio(request.bio());
+        }
+        if (request.yearsExperience() != null) {
+            profile.setYearsExperience(request.yearsExperience());
+        }
+
+        return TechnicianResponse.from(technicianRepository.findByIdWithDetails(profile.getTechnicianId()).orElseThrow());
+    }
+
     @Transactional
     public void setAvailability(Long technicianId, boolean available) {
         TechnicianProfile profile = technicianRepository.findById(technicianId)
@@ -119,7 +135,7 @@ public class TechnicianService {
 
     @Transactional(readOnly = true)
     public TechnicianProfile getByUserIdOrThrow(Long userId) {
-        return technicianRepository.findByUser_UserId(userId)
+        return technicianRepository.findByUserIdWithDetails(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("No technician profile for this account"));
     }
 

@@ -8,6 +8,7 @@ import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { BookServicePage } from '../pages/BookServicePage';
 import { MyBookingsPage } from '../pages/MyBookingsPage';
 import { TechnicianJobsPage } from '../pages/TechnicianJobsPage';
+import { TechnicianProfilePage } from '../pages/TechnicianProfilePage';
 import { AdminDashboardPage } from '../pages/AdminDashboardPage';
 import { AdminUsersPage } from '../pages/AdminUsersPage';
 import { AdminTechniciansPage } from '../pages/AdminTechniciansPage';
@@ -49,6 +50,14 @@ export function AppRoutes() {
           element={
             <ProtectedRoute roles={['TECHNICIAN']}>
               <TechnicianJobsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="my-profile"
+          element={
+            <ProtectedRoute roles={['TECHNICIAN']}>
+              <TechnicianProfilePage />
             </ProtectedRoute>
           }
         />

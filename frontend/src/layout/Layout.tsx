@@ -44,7 +44,12 @@ function roleNavItems(role: 'CUSTOMER' | 'TECHNICIAN' | 'ADMIN') {
         </>
       );
     case 'TECHNICIAN':
-      return <NavItem to="/my-jobs">My jobs</NavItem>;
+      return (
+        <>
+          <NavItem to="/my-jobs">My jobs</NavItem>
+          <NavItem to="/my-profile">My profile</NavItem>
+        </>
+      );
     case 'ADMIN':
       return (
         <>
