@@ -55,6 +55,14 @@ jobs:
           JWT_SECRET=ci-ephemeral-secret-this-container-is-destroyed-at-end-of-run
           CORS_ALLOWED_ORIGINS=http://localhost:5173
           GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          # The test script does many legitimate sequential logins (admin,
+          # customer, password-change verification, etc.) from the runner's
+          # single IP - that's expected test behavior, not an attack, so CI
+          # gets a much higher ceiling than production's real default (5/min).
+          # Production itself is untouched - this only applies inside this
+          # ephemeral CI stack.
+          AUTH_RATE_LIMIT_CAPACITY=50
+          CHAT_RATE_LIMIT_CAPACITY=50
           EOF
 
       - name: Start the stack
