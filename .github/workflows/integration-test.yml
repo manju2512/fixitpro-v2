@@ -96,13 +96,6 @@ jobs:
           docker compose logs ai-chat-service
           exit 1
 
-      - name: DEBUG - show actual rate limit env vars inside the container
-        run: |
-          echo "--- core-service container env ---"
-          docker exec fixitpro-core-service env | grep -i RATE_LIMIT || echo "(no RATE_LIMIT vars found in container env)"
-          echo "--- raw .env file as written ---"
-          cat -A .env | grep -i RATE_LIMIT
-
       - name: Run core booking flow
         run: pwsh -File ./test_fixitpro_flow.ps1 -AdminPassword "${{ secrets.TEST_ADMIN_PASSWORD }}"
 

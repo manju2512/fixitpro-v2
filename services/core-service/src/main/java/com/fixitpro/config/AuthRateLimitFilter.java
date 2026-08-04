@@ -51,7 +51,6 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             @Value("${app.rate-limit.auth.refill-minutes:1}") int refillMinutes) {
         this.capacity = capacity;
         this.refillMinutes = refillMinutes;
-        System.out.println("[RATE-LIMIT-DEBUG] AuthRateLimitFilter constructed with capacity=" + capacity + " refillMinutes=" + refillMinutes);
     }
 
     @Override
@@ -65,12 +64,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         String key = clientIp(request) + ':' + request.getRequestURI();
         Bucket bucket = buckets.get(key, k -> newBucket());
 
-        boolean allowed = bucket.tryConsume(1);
-        System.out.println("[RATE-LIMIT-DEBUG] method=" + request.getMethod() + " uri=" + request.getRequestURI()
-                + " key=" + key + " capacityField=" + capacity
-                + " availableTokensAfter=" + bucket.getAvailableTokens() + " allowed=" + allowed);
-
-        if (allowed) {
+        if (bucket.tryConsume(1)) {
             filterChain.doFilter(request, response);
         } else {
             response.setStatus(429); // Too Many Requests
