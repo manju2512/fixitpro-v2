@@ -1,9 +1,9 @@
-# test-everything.ps1 (v2)
+# test-everything.ps1 (v4)
 #
-# Full backend smoke test - original core checks plus everything added
-# this session: username availability, strict phone validation, password
-# reset (request side + bad-token handling), technician self-service
-# profile, and admin reservation management (assign + status transitions).
+# Full smoke test - backend (original core checks plus flexible login,
+# username availability, strict phone validation, password reset,
+# technician self-service, admin reservation management, rate limiters,
+# circuit breaker) AND frontend (typecheck, lint, production build).
 #
 # USAGE:
 #   powershell -ExecutionPolicy Bypass -File .\test-everything.ps1
@@ -27,9 +27,36 @@ function Test-Step {
         Write-Host "   PASS" -ForegroundColor Green
         $script:results += [pscustomobject]@{ Step = $Name; Result = "PASS"; Detail = "" }
     } catch {
-        Write-Host "   FAIL: $($_.Exception.Message)" -ForegroundColor Red
-        $script:results += [pscustomobject]@{ Step = $Name; Result = "FAIL"; Detail = $_.Exception.Message }
+        $detail = Format-FailureDetail $_
+        Write-Host "   FAIL: $detail" -ForegroundColor Red
+        $script:results += [pscustomobject]@{ Step = $Name; Result = "FAIL"; Detail = $detail }
     }
+}
+
+# Invoke-RestMethod's default exception message is just "The remote server
+# returned an error: (409) Conflict." - useless for telling a duplicate
+# username apart from a duplicate email/phone, or knowing whether a 403 was
+# an auth problem vs a business-rule rejection. core-service's error
+# responses are always JSON ({"message": "...", "fieldErrors": {...}}), so
+# pull that out and show the real reason instead of just the status code.
+function Format-FailureDetail {
+    param($ErrorRecord)
+    $raw = $ErrorRecord.Exception.Message
+    if ($ErrorRecord.ErrorDetails -and $ErrorRecord.ErrorDetails.Message) {
+        try {
+            $parsed = $ErrorRecord.ErrorDetails.Message | ConvertFrom-Json
+            $extra = $parsed.message
+            if ($parsed.fieldErrors) {
+                $fields = ($parsed.fieldErrors.PSObject.Properties | ForEach-Object { "$($_.Name): $($_.Value)" }) -join "; "
+                $extra = "$extra [$fields]"
+            }
+            if ($extra) { return "$raw -- $extra" }
+        } catch {
+            # Body wasn't JSON (e.g. an HTML error page from something other
+            # than core-service) - fall through and just show the raw message.
+        }
+    }
+    return $raw
 }
 
 function Invoke-Json {
@@ -48,17 +75,11 @@ $suffix = Get-Date -Format "yyyyMMddHHmmss"
 $testUsername = "smoketest_$suffix"
 $testEmail = "smoketest_$suffix@example.com"
 $testPassword = "TestPass123"
-# Derived from the timestamp suffix (not a fixed constant) so repeated runs
-# against a persistent DB (local/Render) never collide on phone - unlike
-# username/email, "9876543210" reused across dozens of runs would eventually
-# violate the phone uniqueness constraint, or worse, make the flexible-login
-# lookup ambiguous across multiple old test accounts.
-$phoneDigits = $suffix.Substring($suffix.Length - 9)
-$testPhone = "9$phoneDigits"
+$testPhone = "9876543210"
 
 $techUsername = "smoketech_$suffix"
 $techEmail = "smoketech_$suffix@example.com"
-$techPhone = "8$phoneDigits"
+$techPhone = "9123456780"
 
 $customerToken = $null
 $adminToken = $null
@@ -90,20 +111,6 @@ Test-Step "Signup a new customer" {
     if ($response.role -ne "CUSTOMER") { throw "expected role CUSTOMER, got $($response.role)" }
 }
 
-Test-Step "Login via email works (flexible login)" {
-    $body = @{ username = $testEmail; password = $testPassword }
-    $response = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
-    if (-not $response.accessToken) { throw "no accessToken when logging in via email" }
-    if ($response.username -ne $testUsername) { throw "expected username $testUsername, got $($response.username)" }
-}
-
-Test-Step "Login via phone works (flexible login)" {
-    $body = @{ username = $testPhone; password = $testPassword }
-    $response = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
-    if (-not $response.accessToken) { throw "no accessToken when logging in via phone" }
-    if ($response.username -ne $testUsername) { throw "expected username $testUsername, got $($response.username)" }
-}
-
 Test-Step "Login as bootstrap admin" {
     $body = @{ username = $AdminUsername; password = $AdminPassword }
     $response = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
@@ -133,6 +140,46 @@ Test-Step "Admin: deactivate then reactivate the service type" {
     if ($off.active) { throw "expected active=false" }
     $on = Invoke-RestMethod -Uri "$CoreBaseUrl/admin/service-types/$newServiceTypeId/status?active=true" -Method PATCH -Headers $headers
     if (-not $on.active) { throw "expected active=true" }
+}
+
+# ---------------------------------------------------------------------------
+# NEW: FLEXIBLE LOGIN (username / email / phone all resolve to the same account)
+# ---------------------------------------------------------------------------
+
+Test-Step "Login with email instead of username" {
+    $body = @{ username = $testEmail; password = $testPassword }
+    $response = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
+    if (-not $response.accessToken) { throw "no accessToken in login response" }
+    if ($response.username -ne $testUsername) { throw "expected canonical username $testUsername, got $($response.username)" }
+}
+
+Test-Step "Login with phone instead of username" {
+    $body = @{ username = $testPhone; password = $testPassword }
+    $response = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
+    if (-not $response.accessToken) { throw "no accessToken in login response" }
+    if ($response.username -ne $testUsername) { throw "expected canonical username $testUsername, got $($response.username)" }
+}
+
+Test-Step "Login with wrong password via email fails cleanly (401, not a silent bypass)" {
+    $rejected = $false
+    try {
+        Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body @{ username = $testEmail; password = "wrong-password" }
+    } catch {
+        if ((Get-StatusCode $_) -eq 401) { $rejected = $true }
+    }
+    if (-not $rejected) { throw "expected 401 for wrong password via email identifier" }
+}
+
+Test-Step "Refresh token still round-trips correctly after logging in via email" {
+    # Guards against the refresh() path ever being made to depend on
+    # *how* the person originally logged in - it must always resolve
+    # via the canonical username embedded in the JWT's own subject claim.
+    $body = @{ username = $testEmail; password = $testPassword }
+    $loginResponse = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
+    $refreshBody = @{ refreshToken = $loginResponse.refreshToken }
+    $refreshed = Invoke-Json -Uri "$CoreBaseUrl/auth/refresh" -Method POST -Body $refreshBody
+    if (-not $refreshed.accessToken) { throw "no accessToken in refresh response" }
+    if ($refreshed.username -ne $testUsername) { throw "expected canonical username $testUsername after refresh, got $($refreshed.username)" }
 }
 
 # ---------------------------------------------------------------------------
@@ -313,12 +360,12 @@ Test-Step "Admin: cancel the reservation (cleanup)" {
 # ---------------------------------------------------------------------------
 
 Test-Step "Auth rate limiter trips after enough failed logins" {
-    # Ceiling deliberately well above any capacity we intentionally use
-    # anywhere - production's real default (5), and the locally-elevated
-    # value (50) used to give test scripts headroom for their own normal
-    # login volume. 65 comfortably exceeds both, so this correctly proves
-    # the limiter trips eventually without hardcoding an assumption about
-    # which environment's capacity is currently in effect.
+    # Ceiling deliberately well above either capacity this could be running
+    # with - production's real default (5), or the locally-elevated value
+    # (50, see AUTH_RATE_LIMIT_CAPACITY in .env) used to give test scripts
+    # headroom for their own normal login volume during a run. 65 safely
+    # exceeds both, so this proves the limiter trips eventually without
+    # hardcoding an assumption about which environment's capacity applies.
     $tripped = $false
     for ($i = 1; $i -le 65; $i++) {
         try {
@@ -353,6 +400,83 @@ Test-Step "Circuit breaker actuator endpoint responds" {
 }
 
 # ---------------------------------------------------------------------------
+# NEW: FRONTEND (typecheck, lint, production build)
+# ---------------------------------------------------------------------------
+# Added after a React Hook (useMemo, in SignupPage.tsx) got called after a
+# conditional early return - a real bug that no backend smoke test could
+# ever catch, since it's a static/lint-level frontend issue. Runs the exact
+# same three checks as frontend-ci.yml, from this same script, so "test
+# everything" actually covers the frontend too - both locally and when this
+# script runs in CI (see integration-test.yml).
+#
+# Skipped entirely if Node/npm isn't available locally, rather than failing
+# the whole run - the backend checks above are still meaningful on their
+# own. CI always has Node set up, so this never silently skips there.
+
+$frontendDir = Join-Path $PSScriptRoot "frontend"
+$hasNode = [bool](Get-Command npm -ErrorAction SilentlyContinue)
+
+if (-not $hasNode) {
+    Write-Host "`n(Skipping frontend checks - npm not found on PATH)" -ForegroundColor DarkYellow
+} else {
+    Test-Step "Frontend: install dependencies" {
+        Push-Location $frontendDir
+        try {
+            if (Test-Path "node_modules") {
+                Write-Host "   (node_modules already present - skipping npm ci for speed)"
+            } else {
+                $output = npm ci --no-audit --no-fund 2>&1 | Out-String
+                if ($LASTEXITCODE -ne 0) {
+                    $tail = (($output -split "`r?`n") | Select-Object -Last 15) -join " | "
+                    throw "npm ci failed: $tail"
+                }
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+
+    Test-Step "Frontend: typecheck" {
+        Push-Location $frontendDir
+        try {
+            $output = npx tsc -b --noEmit 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) {
+                $tail = (($output -split "`r?`n") | Select-Object -Last 15) -join " | "
+                throw "tsc reported type errors: $tail"
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+
+    Test-Step "Frontend: lint" {
+        Push-Location $frontendDir
+        try {
+            $output = npm run lint 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) {
+                $tail = (($output -split "`r?`n") | Select-Object -Last 15) -join " | "
+                throw "oxlint reported errors: $tail"
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+
+    Test-Step "Frontend: production build" {
+        Push-Location $frontendDir
+        try {
+            $output = npm run build 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) {
+                $tail = (($output -split "`r?`n") | Select-Object -Last 15) -join " | "
+                throw "vite build failed: $tail"
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host " SUMMARY" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
@@ -362,7 +486,7 @@ $failCount = ($results | Where-Object { $_.Result -eq "FAIL" }).Count
 $passCount = ($results | Where-Object { $_.Result -eq "PASS" }).Count
 
 if ($failCount -eq 0) {
-    Write-Host "`nAll $passCount checks passed. Backend is solid - safe to ship." -ForegroundColor Green
+    Write-Host "`nAll $passCount checks passed. Safe to ship." -ForegroundColor Green
 } else {
     Write-Host "`n$failCount of $($results.Count) checks FAILED. Fix these before shipping." -ForegroundColor Red
 }

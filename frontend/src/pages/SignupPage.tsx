@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/auth';
-import { getApiErrorMessage } from '../api/client';
+import { getApiErrorMessage, getApiFieldErrors } from '../api/client';
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
@@ -58,6 +58,10 @@ export function SignupPage() {
   const [touched, setTouched] = useState({ username: false, phone: false, password: false });
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Populated from the backend's fieldErrors when signup fails because the
+  // email or phone is already registered - the live debounced check only
+  // covers username, so this is how email/phone duplicates surface.
+  const [serverFieldErrors, setServerFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const latestCheckedUsername = useRef<string>('');
 
@@ -96,12 +100,10 @@ export function SignupPage() {
     return () => clearTimeout(timer);
   }, [form.username, usernameFormatError]);
 
-  if (isAuthenticated) return <Navigate to="/" replace />;
-
   const usernameError =
     touched.username && usernameFormatError
       ? usernameFormatError
-      : usernameStatus === 'taken'
+      : usernameStatus === 'taken' || serverFieldErrors.username
         ? 'This username is already taken'
         : usernameStatus === 'error'
           ? "Couldn't check availability - try again"
@@ -127,8 +129,23 @@ export function SignupPage() {
     [form, usernameFormatError, usernameStatus, phoneError, passwordError],
   );
 
+  // All hooks (useEffect, useMemo, useState) are called above, unconditionally,
+  // on every render - this early return must come after every one of them,
+  // never before, or React sees a different number/order of hooks between
+  // renders and throws (or silently corrupts state) the moment isAuthenticated
+  // changes.
+  if (isAuthenticated) return <Navigate to="/" replace />;
+
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    // A stale "already registered" error shouldn't linger once the person
+    // starts changing the value that caused it.
+    if (serverFieldErrors[key]) {
+      setServerFieldErrors((errs) => {
+        const { [key]: _removed, ...rest } = errs;
+        return rest;
+      });
+    }
   }
 
   function handlePhoneChange(raw: string) {
@@ -142,12 +159,24 @@ export function SignupPage() {
     if (!isFormValid) return;
 
     setSubmitError(null);
+    setServerFieldErrors({});
     setSubmitting(true);
     try {
       await signup(form);
       navigate('/', { replace: true });
     } catch (err) {
-      setSubmitError(getApiErrorMessage(err));
+      const fieldErrors = getApiFieldErrors(err);
+      if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+        setServerFieldErrors(fieldErrors);
+        // If every field error is already shown inline (email/phone/username),
+        // skip the redundant generic banner - only fall back to it for a
+        // field this form doesn't render its own error slot for.
+        const handledFields = new Set(['email', 'phone', 'username']);
+        const hasUnhandledField = Object.keys(fieldErrors).some((f) => !handledFields.has(f));
+        if (hasUnhandledField) setSubmitError(getApiErrorMessage(err));
+      } else {
+        setSubmitError(getApiErrorMessage(err));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -183,7 +212,11 @@ export function SignupPage() {
             </div>
           </Field>
 
-          <Field label="Email" hint="We'll send booking confirmations here." error={null}>
+          <Field
+            label="Email"
+            hint="We'll send booking confirmations here."
+            error={serverFieldErrors.email ?? null}
+          >
             <input
               type="email"
               className="rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none focus-visible:border-signal"
@@ -197,7 +230,7 @@ export function SignupPage() {
           <Field
             label="Phone"
             hint="Exactly 10 digits, starting with 6-9 (Indian mobile number)."
-            error={touched.phone ? phoneError : null}
+            error={(touched.phone ? phoneError : null) ?? serverFieldErrors.phone ?? null}
           >
             <input
               type="tel"

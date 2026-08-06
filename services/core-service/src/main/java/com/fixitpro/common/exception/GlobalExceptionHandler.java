@@ -21,7 +21,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AppException.class)
     public ResponseEntity<ApiError> handleAppException(AppException ex, HttpServletRequest request) {
-        return buildResponse(ex.getStatus(), ex.getMessage(), request, null);
+        Map<String, String> fieldErrors = ex.getField() != null
+                ? Map.of(ex.getField(), ex.getMessage())
+                : null;
+        return buildResponse(ex.getStatus(), ex.getMessage(), request, fieldErrors);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -94,3 +94,17 @@ export function getApiErrorMessage(error: unknown): string {
   }
   return 'Something went wrong. Please try again.';
 }
+
+/**
+ * Pulls the per-field error map out of core-service's error response, if
+ * present - covers both @Valid validation failures and duplicate-resource
+ * conflicts (e.g. signing up with an email or phone that's already taken).
+ * Returns undefined when the error isn't about a specific field, so callers
+ * can fall back to the flat message from getApiErrorMessage().
+ */
+export function getApiFieldErrors(error: unknown): Record<string, string> | undefined {
+  if (axios.isAxiosError(error)) {
+    return (error.response?.data as { fieldErrors?: Record<string, string> } | undefined)?.fieldErrors;
+  }
+  return undefined;
+}

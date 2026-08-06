@@ -10,6 +10,10 @@ name: Integration Test
 # ubuntu-latest, and the scripts only call localhost - since the runner IS
 # the Docker host, that works identically to running them locally.
 #
+# test-everything.ps1 now also runs the frontend's typecheck/lint/build as
+# part of its own suite, so Node needs to be available on this runner too
+# (see "Set up Node.js" below) - not just for docker-compose's Java services.
+#
 # Requires a GROQ_API_KEY repository secret (Settings > Secrets and
 # variables > Actions) for the AI chat portion - get a free key at
 # https://console.groq.com. Without it, test_ai_chat_flow.ps1 will correctly
@@ -22,6 +26,7 @@ on:
     paths:
       - "services/core-service/**"
       - "services/ai-chat-service/**"
+      - "frontend/**"
       - "test_fixitpro_flow.ps1"
       - "test_ai_chat_flow.ps1"
       - "test-everything.ps1"
@@ -32,6 +37,7 @@ on:
     paths:
       - "services/core-service/**"
       - "services/ai-chat-service/**"
+      - "frontend/**"
       - "test_fixitpro_flow.ps1"
       - "test_ai_chat_flow.ps1"
       - "test-everything.ps1"
@@ -46,6 +52,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Create .env for docker compose
         run: |

@@ -40,13 +40,13 @@ public class AuthService {
     @Transactional
     public AuthResponse signup(SignupRequest request) {
         if (userRepository.existsByUsername(request.username())) {
-            throw new DuplicateResourceException("Username is already taken");
+            throw new DuplicateResourceException("username", "Username is already taken");
         }
         if (userRepository.existsByEmail(request.email())) {
-            throw new DuplicateResourceException("Email is already registered");
+            throw new DuplicateResourceException("email", "Email is already registered");
         }
         if (userRepository.existsByPhone(request.phone())) {
-            throw new DuplicateResourceException("Phone number is already registered");
+            throw new DuplicateResourceException("phone", "Phone number is already registered");
         }
 
         Role customerRole = roleRepository.findByName(RoleName.CUSTOMER.name())

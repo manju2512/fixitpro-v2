@@ -115,5 +115,9 @@ export interface ChatResponse {
 export interface ApiErrorBody {
   message: string;
   status?: number;
+  /** Present when the error is about one or more specific request fields
+   * (e.g. { "email": "Email is already registered" }) - same shape for
+   * both validation errors and duplicate-resource conflicts. */
+  fieldErrors?: Record<string, string>;
   [key: string]: unknown;
 }
