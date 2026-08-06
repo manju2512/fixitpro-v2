@@ -71,6 +71,15 @@ try {
     $CUST_CURRENT_PASSWORD = "CustPassNew456"
     Write-Host "(original password didn't work - logged in with the password from a previous run's step 14 instead)"
 }
+
+Write-Host "== 4b. Flexible login: same account via email and phone =="
+$custAuthByEmail = Invoke-Json POST "/auth/login" @{ username = "amit@example.com"; password = $CUST_CURRENT_PASSWORD }
+if ($custAuthByEmail.username -ne "cust_amit") { throw "login via email returned wrong account: $($custAuthByEmail.username)" }
+Write-Host "PASS: login via email resolved to cust_amit" -ForegroundColor Green
+
+$custAuthByPhone = Invoke-Json POST "/auth/login" @{ username = "9998887777"; password = $CUST_CURRENT_PASSWORD }
+if ($custAuthByPhone.username -ne "cust_amit") { throw "login via phone returned wrong account: $($custAuthByPhone.username)" }
+Write-Host "PASS: login via phone resolved to cust_amit" -ForegroundColor Green
 $CUST_TOKEN = $custAuth.accessToken
 Write-Host "Customer token acquired: $($CUST_TOKEN.Substring(0,20))..."
 

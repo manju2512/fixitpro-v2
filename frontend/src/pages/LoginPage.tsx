@@ -38,7 +38,7 @@ export function LoginPage() {
       <div className="mt-6 rounded-lg border border-line bg-paper-raised p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Username</span>
+            <span className="text-sm font-medium">Username, email, or phone</span>
             <input
               className="rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none focus-visible:border-signal"
               value={username}

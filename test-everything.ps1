@@ -48,11 +48,17 @@ $suffix = Get-Date -Format "yyyyMMddHHmmss"
 $testUsername = "smoketest_$suffix"
 $testEmail = "smoketest_$suffix@example.com"
 $testPassword = "TestPass123"
-$testPhone = "9876543210"
+# Derived from the timestamp suffix (not a fixed constant) so repeated runs
+# against a persistent DB (local/Render) never collide on phone - unlike
+# username/email, "9876543210" reused across dozens of runs would eventually
+# violate the phone uniqueness constraint, or worse, make the flexible-login
+# lookup ambiguous across multiple old test accounts.
+$phoneDigits = $suffix.Substring($suffix.Length - 9)
+$testPhone = "9$phoneDigits"
 
 $techUsername = "smoketech_$suffix"
 $techEmail = "smoketech_$suffix@example.com"
-$techPhone = "9123456780"
+$techPhone = "8$phoneDigits"
 
 $customerToken = $null
 $adminToken = $null
@@ -82,6 +88,20 @@ Test-Step "Signup a new customer" {
     if (-not $response.accessToken) { throw "no accessToken in signup response" }
     $script:customerToken = $response.accessToken
     if ($response.role -ne "CUSTOMER") { throw "expected role CUSTOMER, got $($response.role)" }
+}
+
+Test-Step "Login via email works (flexible login)" {
+    $body = @{ username = $testEmail; password = $testPassword }
+    $response = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
+    if (-not $response.accessToken) { throw "no accessToken when logging in via email" }
+    if ($response.username -ne $testUsername) { throw "expected username $testUsername, got $($response.username)" }
+}
+
+Test-Step "Login via phone works (flexible login)" {
+    $body = @{ username = $testPhone; password = $testPassword }
+    $response = Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body $body
+    if (-not $response.accessToken) { throw "no accessToken when logging in via phone" }
+    if ($response.username -ne $testUsername) { throw "expected username $testUsername, got $($response.username)" }
 }
 
 Test-Step "Login as bootstrap admin" {
@@ -293,22 +313,21 @@ Test-Step "Admin: cancel the reservation (cleanup)" {
 # ---------------------------------------------------------------------------
 
 Test-Step "Auth rate limiter trips after enough failed logins" {
-    # Not assuming a perfectly clean bucket here - this IP may have already
-    # consumed tokens from earlier logins in this same script run (admin,
-    # technician, etc. all share this bucket, keyed by IP+path, not by
-    # username), and greedy refill means exactly how much is available
-    # depends on real wall-clock time elapsed since those calls. So: try
-    # generously, stop the moment a 429 appears, fail only if genuinely
-    # never observed across way more attempts than capacity could explain.
+    # Ceiling deliberately well above any capacity we intentionally use
+    # anywhere - production's real default (5), and the locally-elevated
+    # value (50) used to give test scripts headroom for their own normal
+    # login volume. 65 comfortably exceeds both, so this correctly proves
+    # the limiter trips eventually without hardcoding an assumption about
+    # which environment's capacity is currently in effect.
     $tripped = $false
-    for ($i = 1; $i -le 30; $i++) {
+    for ($i = 1; $i -le 65; $i++) {
         try {
             Invoke-Json -Uri "$CoreBaseUrl/auth/login" -Method POST -Body @{ username = $testUsername; password = "wrong-password" }
         } catch {
             if ((Get-StatusCode $_) -eq 429) { $tripped = $true; break }
         }
     }
-    if (-not $tripped) { throw "never got a 429 after 30 failed login attempts" }
+    if (-not $tripped) { throw "never got a 429 after 65 failed login attempts" }
 }
 
 Test-Step "Chat rate limiter trips within a generous number of messages" {

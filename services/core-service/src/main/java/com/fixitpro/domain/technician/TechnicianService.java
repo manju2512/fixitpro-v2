@@ -41,6 +41,9 @@ public class TechnicianService {
         if (userRepository.existsByEmail(request.email())) {
             throw new DuplicateResourceException("Email is already registered");
         }
+        if (userRepository.existsByPhone(request.phone())) {
+            throw new DuplicateResourceException("Phone number is already registered");
+        }
 
         Role technicianRole = roleRepository.findByName(RoleName.TECHNICIAN.name())
                 .orElseThrow(() -> new ResourceNotFoundException("TECHNICIAN role not configured"));

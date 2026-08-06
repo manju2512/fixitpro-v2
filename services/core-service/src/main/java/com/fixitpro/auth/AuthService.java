@@ -45,6 +45,9 @@ public class AuthService {
         if (userRepository.existsByEmail(request.email())) {
             throw new DuplicateResourceException("Email is already registered");
         }
+        if (userRepository.existsByPhone(request.phone())) {
+            throw new DuplicateResourceException("Phone number is already registered");
+        }
 
         Role customerRole = roleRepository.findByName(RoleName.CUSTOMER.name())
                 .orElseThrow(() -> new ResourceNotFoundException("Default role not configured"));
@@ -73,7 +76,7 @@ public class AuthService {
             throw new BadCredentialsException("Invalid username or password");
         }
 
-        User user = userRepository.findByUsernameWithRole(request.username())
+        User user = userRepository.findByUsernameOrEmailOrPhoneWithRole(request.username())
                 .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
 
         UserPrincipal principal = new UserPrincipal(user);

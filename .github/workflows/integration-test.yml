@@ -2,13 +2,13 @@ name: Integration Test
 
 # There are no unit tests in either backend service yet (see backend-ci.yml)
 # so this workflow is currently the only thing that verifies actual
-# *behavior* rather than just "does it compile". It runs the exact same
-# test_fixitpro_flow.ps1 and test_ai_chat_flow.ps1 scripts used for manual
-# verification throughout development, against a real docker-compose stack
-# (MySQL + Redis + core-service + ai-chat-service), on GitHub's own runner.
-# `pwsh` (PowerShell Core) ships preinstalled on ubuntu-latest, and the
-# scripts only call localhost - since the runner IS the Docker host, that
-# works identically to running them locally.
+# *behavior* rather than just "does it compile". It runs the same
+# test_fixitpro_flow.ps1, test_ai_chat_flow.ps1, and test-everything.ps1
+# scripts used for manual verification throughout development, against a
+# real docker-compose stack (MySQL + Redis + core-service + ai-chat-service),
+# on GitHub's own runner. `pwsh` (PowerShell Core) ships preinstalled on
+# ubuntu-latest, and the scripts only call localhost - since the runner IS
+# the Docker host, that works identically to running them locally.
 #
 # Requires a GROQ_API_KEY repository secret (Settings > Secrets and
 # variables > Actions) for the AI chat portion - get a free key at
@@ -24,6 +24,7 @@ on:
       - "services/ai-chat-service/**"
       - "test_fixitpro_flow.ps1"
       - "test_ai_chat_flow.ps1"
+      - "test-everything.ps1"
       - "docker-compose.yml"
       - ".github/workflows/integration-test.yml"
   pull_request:
@@ -33,6 +34,7 @@ on:
       - "services/ai-chat-service/**"
       - "test_fixitpro_flow.ps1"
       - "test_ai_chat_flow.ps1"
+      - "test-everything.ps1"
       - "docker-compose.yml"
       - ".github/workflows/integration-test.yml"
   workflow_dispatch: {}
@@ -101,6 +103,17 @@ jobs:
 
       - name: Run AI chat flow
         run: pwsh -File ./test_ai_chat_flow.ps1
+
+      # Broader smoke suite: flexible login (username/email/phone),
+      # username availability, strict phone validation, password reset,
+      # technician self-service, admin reservation management, and both
+      # rate limiters. Overlaps with test_fixitpro_flow.ps1 in places (e.g.
+      # health checks) but that's fine - CI's rate limit capacity (50) has
+      # plenty of headroom, and this is the same script used as the local
+      # pre-ship gate, so CI is now verifying the exact thing that gates a
+      # local ship decision, not a parallel/divergent copy of it.
+      - name: Run full smoke test suite
+        run: pwsh -File ./test-everything.ps1 -AdminPassword "${{ secrets.TEST_ADMIN_PASSWORD }}"
 
       - name: Dump logs on failure
         if: failure()

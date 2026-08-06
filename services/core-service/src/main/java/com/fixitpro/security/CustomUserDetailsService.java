@@ -14,9 +14,12 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String username) {
-        return userRepository.findByUsernameWithRole(username)
+    public UserDetails loadUserByUsername(String identifier) {
+        // Despite the interface method's name, this resolves username,
+        // email, OR phone - see UserRepository.findByUsernameOrEmailOrPhoneWithRole
+        // for why this must stay in sync with AuthService.login()'s own lookup.
+        return userRepository.findByUsernameOrEmailOrPhoneWithRole(identifier)
                 .map(UserPrincipal::new)
-                .orElseThrow(() -> new UsernameNotFoundException("No user found with username: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("No user found with identifier: " + identifier));
     }
 }
