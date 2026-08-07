@@ -68,6 +68,16 @@ public class ChatService {
                             "The AI assistant is temporarily unavailable - we're aware and it should recover shortly. Please try again in a minute.",
                             request.messages()));
                 })
+                // Distinct from a generic failure so both the customer and anything
+                // scripted against this API (e.g. test_ai_chat_flow.ps1) can tell "we
+                // hit our own usage quota" apart from "something is actually broken" -
+                // the former is expected and temporary, the latter deserves attention.
+                .onErrorResume(GroqClient.RateLimitException.class, e -> {
+                    log.warn("Chat request rate-limited by Groq for user {}: {}", user.username(), e.getMessage());
+                    return Mono.just(new ChatResponse(
+                            "The AI assistant has reached its usage limit for now - please try again later.",
+                            request.messages()));
+                })
                 .onErrorResume(TimeoutException.class, e -> {
                     log.warn("Chat request timed out for user {}", user.username());
                     return Mono.just(new ChatResponse(
